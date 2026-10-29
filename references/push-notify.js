@@ -3,14 +3,14 @@
  * pushplus 推送助手（天信每日日报）
  * 用途：把日报推送到 ① 天信负责人手机(中国移动 5G 消息 cmcc) ② 245830958@qq.com(邮件 mail)
  *
- * 推送机制（按 pushplus 官方文档）：
- *   - cmcc(5G 消息)：用 template:"html" 发送完整 HTML 看板。pushplus 会把看板托管到其页面，
- *     5G 消息内呈现「纯文本摘要 + 超链接」，负责人点链接即可在手机上查看完整看板。
+ * 推送机制（按 pushplus 官方文档 + 实跑修正）：
+ *   - cmcc(5G 消息)：用 template:"txt" 发送**纯文本全文**（编号 + 要点罗列）。
+ *     云端 agent 常无仓库写入凭据，看板发布到公网会失败 —— 若短信只带摘要 + 链接，
+ *     负责人就什么都看不到。故短信一律发全文文案，不依赖外链；发布成功才附一行链接。
  *   - mail(邮件)：用 template:"html" 发送完整 HTML 看板全文。
  *
- * pushplus 对单次 content 有 2 万字上限：本助手先压缩空白，若仍超限则按标记
- * （<!-- PUSH-TRIM:history -->…<!-- /PUSH-TRIM:history -->）裁掉最低优先级的
- * 「历史参考」列，确保稳定送达；极端情况下再硬截断并附说明。
+ * pushplus 对单次 content 有 2 万字上限：本助手先压缩空白，若仍超限则按 </section>
+ * 硬截断并附说明（看板模板已移除「历史参考」列，正常不会触发）。
  *
  * 用法：node references/push-notify.js "<标题>" "<看板HTML文件路径>"
  * token 读取优先级：环境变量 PUSHPLUS_TOKEN > 同目录 push-secrets.json（本地，gitignore）
@@ -21,10 +21,8 @@ const path = require("path");
 const { execSync } = require("child_process");
 
 /* ── 完整看板的公网托管（GitHub Pages） ───────────────────────────────
-   背景：pushplus 的 cmcc(5G 消息) 通道，短信正文与「查看详情」链接页用的是同一份 content。
-   发完整看板 → 短信必然又长又混代码；发短摘要 → 链接页也只能是摘要。二者无法在 pushplus 内解耦。
-   解法：把完整看板发布到 GitHub Pages 拿到公网地址，短信只带摘要，
-   链接页用「跳转桥页」自动跳到完整看板 —— 短信短、点开是完整版。 */
+   尽力而为：发布成功后，在短信全文末尾附一行完整看板地址。
+   发布失败（非 git 环境 / 无 push 凭据）不影响短信 —— 短信本身即全文文案。 */
 const PAGES_BASE = "https://cyhzzz.github.io/tianxin-daily-brief";
 const REPO_ROOT = path.resolve(__dirname, "..");
 
@@ -208,29 +206,148 @@ function resolveStyleVars(html) {
 }
 
 /**
- * 抽取短信摘要：看板中 id="sms-summary" 的区块（纯文本）。
- * 5G 消息按 pushplus 文档用 template:"txt"，正文会尽量完整展示，
- * 所以这里必须给「短」内容，短信才不会太长。
+ * 按 class 名提取 div 区块（含匹配闭合标签），纯正则实现，不依赖 jsdom。
+ * 看板是固定模板，div 嵌套规整，用深度计数即可准确切块。
  */
-function extractSummary(html) {
-  const m = html.match(/<div id="sms-summary"[^>]*>([\s\S]*?)<\/div>/i);
-  if (!m) {
-    return html
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 200);
+function matchBlocks(html, cls) {
+  const out = [];
+  const re = /<(\/?)div\b([^>]*)>/gi;
+  const stack = [];
+  let m;
+  while ((m = re.exec(html))) {
+    const closing = m[1] === "/";
+    if (!closing) {
+      const attrs = m[2] || "";
+      const cm = attrs.match(/class\s*=\s*"([^"]*)"/i);
+      const hit = cm && cm[1].split(/\s+/).indexOf(cls) >= 0;
+      stack.push({ start: m.index + m[0].length, hit: !!hit });
+    } else {
+      const top = stack.pop();
+      if (top && top.hit) out.push(html.slice(top.start, m.index));
+    }
   }
-  const text = m[1]
+  return out;
+}
+
+/** HTML 片段 → 纯文本（去标签、解实体、压空白） */
+function textOf(frag) {
+  if (!frag) return "";
+  return frag
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/(p|li|dt|dd|h\d|div)>/gi, "\n")
     .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n")
     .split("\n")
-    .map((s) => s.replace(/\s+/g, " ").trim())
+    .map((s) => s.trim())
     .filter(Boolean)
     .join("\n");
-  return text.length > 600 ? text.slice(0, 600) : text;
+}
+
+/** 取 <dl class="meta"> 里的 dt/dd 键值对 */
+function metaPairs(cardHtml) {
+  const dl = cardHtml.match(/<dl class="meta"[^>]*>([\s\S]*?)<\/dl>/i);
+  if (!dl) return [];
+  const pairs = [];
+  const re = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
+  let m;
+  while ((m = re.exec(dl[1]))) {
+    pairs.push([textOf(m[1]).replace(/[:：]\s*$/, ""), textOf(m[2])]);
+  }
+  return pairs;
+}
+
+/** 取区块里的 tag 文本（如 国企采购 / 急 · 11-05 开标 / 评分 高 / 可独立投） */
+function tagTexts(frag) {
+  const spans = frag.match(/<span class="tag[^"]*"[^>]*>([\s\S]*?)<\/span>/gi) || [];
+  return spans.map((s) => textOf(s)).filter(Boolean);
+}
+
+/**
+ * 构建 5G 消息全文（纯文本 · 编号 + 要点罗列）。
+ * 背景：云端 agent 常无仓库写入凭据，看板发布到 Pages 会失败，
+ * 若短信只带摘要 + 链接，负责人就什么都看不到。故改为「全文文案」，
+ * 不依赖任何外链即可读全；发布成功时才在末尾附一行链接。
+ */
+function buildSmsText(html, dateStr) {
+  // 剥离注释：模板注释里的骨架示例不能当作真实条目
+  html = html.replace(/<!--[\s\S]*?-->/g, "");
+  const lines = [];
+  const statOf = (label) => {
+    const blocks = matchBlocks(html, "stat");
+    for (const b of blocks) {
+      if (b.indexOf(label) >= 0) {
+        const n = b.match(/<div class="n">([^<]*)<\/div>/);
+        return n ? n[1].trim() : "";
+      }
+    }
+    return "";
+  };
+  const tt = statOf("天台县");
+  const hot = statOf("热点");
+
+  // 一、台州本地商机（无 c-title 的卡片是空列占位，跳过）
+  const oppSec = html.match(/<section id="opportunities"[^>]*>([\s\S]*?)<\/section>/i);
+  const cards = (oppSec ? matchBlocks(oppSec[1], "card") : []).filter(
+    (c) => /<h4 class="c-title"/i.test(c)
+  );
+  lines.push("天信每日日报 · " + dateStr);
+  const head = ["商机 " + cards.length + " 条"];
+  if (tt) head.push("天台县 " + tt + " 条");
+  head.push("热点 " + (hot || 0) + " 条");
+  lines.push(head.join("｜"));
+  lines.push("");
+  lines.push("一、台州本地商机（" + cards.length + "）");
+  cards.forEach((c, i) => {
+    const title = textOf((c.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/i) || [])[1] || "");
+    lines.push((i + 1) + ". " + (title || "（无标题）"));
+    const KEEP_META = ["采购人", "预算", "限价", "金额", "服务期", "截止", "开标", "资质", "地区", "发布"];
+    metaPairs(c).forEach(([k, v]) => {
+      if (KEEP_META.some((x) => k.indexOf(x) >= 0)) lines.push("   · " + k + "：" + v);
+    });
+    const tags = tagTexts(c);
+    const matchTag = tags.filter((t) => /可独立投|需联合|暂不匹配/.test(t));
+    const scoreTag = tags.filter((t) => /^评分/.test(t));
+    const tail = matchTag.concat(scoreTag).join(" ｜ ");
+    if (tail) lines.push("   · 判定：" + tail);
+    const follow = textOf((c.match(/<div class="follow"[^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "");
+    if (follow) lines.push("   · 跟进：" + follow.replace(/^跟进[：:]\s*/, ""));
+    const link = (c.match(/<a class="c-link"[^>]*href="([^"]*)"/i) || [])[1];
+    if (link) lines.push("   · 原文：" + link);
+  });
+  if (!cards.length) lines.push("（近 7 天未检索到活单）");
+  lines.push("");
+
+  // 二、行业热点
+  const hotSec = html.match(/<section id="hotspots"[^>]*>([\s\S]*?)<\/section>/i);
+  const news = hotSec ? matchBlocks(hotSec[1], "news") : [];
+  lines.push("二、行业热点（" + news.length + "）");
+  news.forEach((n, i) => {
+    const t = textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || "");
+    const rel = textOf((n.match(/<p class="n-rel"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || "");
+    lines.push((i + 1) + ". " + (t || "（无标题）"));
+    if (rel) lines.push("   · " + rel.replace(/^相关性[：:]\s*/, "").slice(0, 120));
+  });
+  if (!news.length) lines.push("（今日无直接相关热点）");
+  lines.push("");
+
+  // 三、今日提示
+  const tipSec = html.match(/<section id="tips"[^>]*>([\s\S]*?)<\/section>/i);
+  const tips = tipSec ? (tipSec[1].match(/<li[^>]*>[\s\S]*?<\/li>/gi) || []) : [];
+  lines.push("三、今日提示（" + tips.length + "）");
+  tips.forEach((t, i) => {
+    const body = textOf((t.match(/<span class="t-body"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || t);
+    lines.push((i + 1) + ". " + body.slice(0, 200));
+  });
+  if (!tips.length) lines.push("（今日无特别提示）");
+
+  return lines.join("\n");
 }
 
 /**
@@ -280,7 +397,17 @@ function publishFullPage(html, date) {
     const page = html.replace(/(src=)(["'])\.?\/?assets\//g, "$1$2../assets/");
     fs.writeFileSync(path.join(dir, date + ".html"), page);
     fs.writeFileSync(path.join(dir, "latest.html"), page);
-    const git = (cmd) => execSync(cmd, { cwd: REPO_ROOT, stdio: "pipe" }).toString();
+    const git = (cmd) =>
+      execSync(cmd, {
+        cwd: REPO_ROOT,
+        stdio: "pipe",
+        // 云端常无写入凭据：禁用交互提示，避免 git 卡在 "Username for 'https://github.com'"
+        env: Object.assign({}, process.env, {
+          GIT_TERMINAL_PROMPT: "0",
+          GIT_ASKPASS: "echo",
+        }),
+        timeout: 60000,
+      }).toString();
     if (!fs.existsSync(path.join(REPO_ROOT, ".git"))) {
       return { url: null, why: "不在 git 仓库，未发布" };
     }
@@ -298,51 +425,10 @@ function publishFullPage(html, date) {
   }
 }
 
-/**
- * 生成「跳转桥页」：短信里点开 pushplus 链接后落地这一页，自动跳到完整看板。
- * 桥页正文就是短信摘要，因此 pushplus 抽出的短信正文 = 短摘要，不会长。
- * 若托管环境屏蔽 meta/script 跳转，页面上仍有醒目按钮可一键直达。
- */
-function bridgeHtml(summary, url, title) {
-  const esc = (s) =>
-    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const lines = summary.split("\n").filter((s) => s.trim());
-  const body = lines
-    .map(
-      (l) =>
-        '<p style="margin:6px 0;font-size:15px;line-height:1.6;color:#161616">' +
-        esc(l) +
-        "</p>"
-    )
-    .join("");
-  return (
-    '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">' +
-    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<meta http-equiv="refresh" content="0;url=' + url + '">' +
-    "<title>" + esc(title) + "</title></head>" +
-    '<body style="margin:0;padding:16px;font-family:-apple-system,\'PingFang SC\',\'Microsoft YaHei\',Arial,sans-serif;background:#ffffff">' +
-    '<div style="max-width:640px;margin:0 auto">' +
-    '<p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;color:#8a8a8a">天台天信会计师事务所 · 每日情报</p>' +
-    body +
-    '<p style="margin:18px 0 6px"><a href="' + url + '" style="display:block;padding:13px 12px;background:#00338D;color:#ffffff;text-decoration:none;font-size:16px;text-align:center;font-weight:600">查看完整看板</a></p>' +
-    '<p style="margin:0;font-size:12px;color:#8a8a8a">未自动跳转请点上方按钮</p>' +
-    "</div>" +
-    // 不用 <script>：pushplus 抽短信正文时会把脚本文本一起抽进去（曾导致短信混入代码）
-    "</body></html>"
-  );
-}
-
 function prepare(raw) {
   let html = minify(raw);
   if (html.length <= LIMIT) return { html, trimmed: false };
-  // 超限：裁掉「历史参考」列（最低优先级）
-  const before = html;
-  html = html
-    .replace(/<!--\s*PUSH-TRIM:history\s*-->[\s\S]*?<!--\s*\/PUSH-TRIM:history\s*-->/g, "")
-    .trim();
-  html = minify(html);
-  if (html.length <= LIMIT) return { html, trimmed: true };
-  // 仍超限：在最后一个 </section> 前硬截断并附说明
+  // 仍超限：在最后一个 </section> 前硬截断并附说明（模板已移除「历史参考」列，正常不会走到这里）
   const cut = html.lastIndexOf("</section>", LIMIT - 200);
   const safe = cut > 0 ? cut : LIMIT;
   html =
@@ -402,41 +488,52 @@ function resolveHtml(arg) {
     process.exit(0);
   }
   const { html, trimmed } = prepare(raw);
-  console.log("看板字符数:", html.length, trimmed ? "（已按优先级精简至 2 万字内）" : "（原始，未超上限）");
+  console.log("看板字符数:", html.length, trimmed ? "（已精简至 2 万字内）" : "（原始，未超上限）");
   const full = absAssets(html); // 图片转绝对地址，托管页/邮件才能显示
-  const summary = extractSummary(full); // 5G 短信：只发短摘要
-  const inlined = inlineCss(full); // 邮件：CSS 转内联，版式才不会丢
-
-  // ① 先把完整看板发布到公网（GitHub Pages），拿到可点开的完整版地址
+  const inlined = inlineCss(full); // 邮件：CSS 转内联（jsdom 可用且不超上限时才用）
   const date = (String(titleArg).match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || todayStr();
+
+  // ① 全文文案（编号 + 要点）：不依赖任何外链即可读全
+  let smsBody = buildSmsText(html, date).trim();
+  if (smsBody.length < 120) {
+    // 模板结构异常时的兜底：剥离标签取正文
+    smsBody =
+      "天信每日日报 · " +
+      date +
+      "\n" +
+      html
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]*>/g, "\n")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 3000);
+  }
+
+  // ② 完整看板发布到公网（GitHub Pages）：尽力而为，失败不影响短信可读性
   const pub = publishFullPage(raw, date);
   console.log(
     "完整看板公网地址:",
-    pub.url || "（未发布：" + pub.why + "，将降级为短信只发摘要）"
+    pub.url || "（未发布：" + pub.why + "；短信为全文文案，不依赖链接）"
   );
   if (pub.url) {
-    const w = await waitForPages(pub.url, 120000); // 等 Pages 构建，避免短信里的链接 404
+    const w = await waitForPages(pub.url, 120000); // 等 Pages 构建，避免链接 404
     console.log(
-      w.ok ? "Pages 已就绪（等待 " + w.waited + " 秒）" : "Pages 尚未就绪（已等 " + w.waited + " 秒，链接可能要稍等）"
+      w.ok
+        ? "Pages 已就绪（等待 " + w.waited + " 秒）"
+        : "Pages 尚未就绪（已等 " + w.waited + " 秒，链接可能要稍等）"
     );
+    smsBody += "\n\n完整看板：" + pub.url;
   }
 
-  // ② 5G 消息：短摘要 + 跳转桥页。点短信里的链接 → 桥页 → 自动跳到完整看板
-  let cmccTpl = "txt";
-  let cmccBody = summary;
-  if (pub.url) {
-    cmccBody = bridgeHtml(summary, pub.url, titleArg);
-    cmccTpl = "html"; // 非 txt 模板：pushplus 抽纯文本摘要作短信正文，链接页显示桥页（跳转完整版）
-  }
-  const smsText = cmccBody.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  // ③ 5G 消息：template:"txt" 发全文文案（pushplus 对 txt 正文会尽量完整展示）
   console.log(
     "短信正文字符数:",
-    smsText.length,
+    smsBody.length,
     "｜代码残留:",
-    /:root|var\(--|--bg|\{/.test(smsText) ? "有（异常）" : "无"
+    /:root|var\(--|--bg|\{/.test(smsBody) ? "有（异常）" : "无"
   );
-  console.log("--- 短信正文 ---\n" + smsText + "\n----------------");
-  const cmcc = await send(token, "cmcc", titleArg, cmccBody, cmccTpl);
+  console.log("--- 短信正文 ---\n" + smsBody + "\n----------------");
+  const cmcc = await send(token, "cmcc", titleArg, smsBody, "txt");
   console.log(cmcc);
   const lean = resolveStyleVars(full); // 邮件版：保留 <style>，但 CSS 变量全部落地
   const mailBody = inlined && inlined.length <= LIMIT ? inlined : lean;

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>天信每日情报看板 · {{DATE}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── 天信设计规范令牌（tianxin-cpa / tokens.css，逐字引入） ── */
+    :root {
+      --bg: #ffffff;
+      --surface: #f4f4f4;
+      --surface-warm: #fbfbfb;
+      --fg: #161616;
+      --fg-2: #525252;
+      --muted: #8a8a8a;
+      --border: #e0e0e0;
+      --border-soft: #e8e8e8;
+      --accent: #0f62fe;
+      --accent-on: #ffffff;
+      --accent-hover: #0f62fe;
+      --accent-active: #00338d;
+      --accent-deep: #00338d;
+      --accent-sky: #4589ff;
+      --gold: #b8860b;
+      --gold-hover: #d4a017;
+      --success: #24a148;
+      --warn: #b8860b;
+      --danger: #da1e28;
+      --font-display: "Noto Serif SC", "Source Han Serif SC", Georgia, "Times New Roman", STSong, SimSun, serif;
+      --font-body: "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --text-xs: 12px;
+      --text-sm: 14px;
+      --text-base: 15px;
+      --text-lg: 22px;
+      --text-xl: 32px;
+      --leading-body: 1.50;
+      --leading-tight: 1.05;
+      --tracking-display: -0.03em;
+      --tracking-eyebrow: 0.08em;
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --space-1: 8px; --space-2: 12px; --space-3: 16px; --space-4: 24px;
+      --space-5: 32px; --space-6: 40px; --space-8: 48px; --space-10: 64px; --space-12: 80px;
+      --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-pill: 0;
+      --elev-flat: none;
+      --elev-ring: 0 0 0 1px var(--border);
+      --elev-raised: 0 8px 24px rgba(0, 0, 0, 0.12);
+      --focus-ring: 0 0 0 2px var(--accent);
+      --container-max: 1280px;
+      --container-gutter: 24px;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: var(--leading-body);
+      color: var(--fg);
+      background: var(--bg);
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: var(--container-max); margin: 0 auto; padding: 0 var(--container-gutter); }
+
+    /* ── 页眉（navy 旗舰带） ── */
+    .site-header { background: var(--accent-deep); color: #fff; padding: var(--space-6) 0; }
+    .site-header .eyebrow {
+      font-size: var(--text-xs); letter-spacing: var(--tracking-eyebrow);
+      color: var(--accent-sky); text-transform: uppercase; margin: 0 0 var(--space-1);
+    }
+    .site-header .wordmark {
+      font-family: var(--font-display); font-weight: var(--weight-semibold);
+      font-size: 30px; letter-spacing: var(--tracking-display); line-height: 1.1; margin: 0;
+    }
+    .site-header .sub { font-size: var(--text-sm); color: rgba(255,255,255,0.78); margin-top: var(--space-1); }
+    .site-header .date { font-size: var(--text-sm); color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; }
+    /* 页眉布局（参考官网：navy 旗舰带 + 印章 logo + 字标） */
+    .header-inner { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: var(--space-3); }
+    /* 红色印章 logo 置于浅色底衬上（0 圆角），避免在 navy/深色底上发闷；尺寸与底色走内联样式，邮件与托管页同样生效 */
+    .brand-logo { flex: 0 0 auto; display: block; }
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-text .wordmark { font-size: 28px; }
+    .brand-text .sub { margin-top: 2px; }
+
+    /* ── 速览条 ── */
+    .overview { border-bottom: 1px solid var(--border); background: var(--surface); }
+    .overview .container { display: flex; flex-wrap: wrap; gap: var(--space-6); padding-top: var(--space-4); padding-bottom: var(--space-4); }
+    .overview .stat .n { font-size: var(--text-xl); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; color: var(--accent-deep); }
+    .overview .stat .l { font-size: var(--text-xs); color: var(--muted); letter-spacing: 0.02em; }
+    .overview .stat.gold .n { color: var(--gold); }
+
+    /* 今日摘要（短信正文取此区块，页面上也作为速览展示） */
+    .sms-summary { background: var(--surface); border: 1px solid var(--border); padding: var(--space-3) var(--space-4); margin: var(--space-4) 0 0; font-size: var(--text-sm); line-height: 1.75; }
+    .sms-summary p { margin: 0; }
+
+    /* ── 区块 ── */
+    section { padding: var(--space-12) 0; }
+    section + section { border-top: 1px solid var(--border); }
+    .section-divider { width: 48px; height: 3px; background: var(--gold); margin-bottom: var(--space-3); }
+    .section-title { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-display); margin: 0 0 var(--space-1); }
+    .section-note { font-size: var(--text-sm); color: var(--fg-2); margin: 0 0 var(--space-6); }
+    .eyebrow-zh { font-size: var(--text-xs); letter-spacing: var(--tracking-eyebrow); color: var(--muted); text-transform: uppercase; margin: 0 0 var(--space-2); }
+
+    /* ── 天台县专项带 ── */
+    .tiantai-band { background: var(--surface); border: 1px solid var(--border); padding: var(--space-5); margin-bottom: var(--space-6); }
+    .tiantai-band .tt-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+    .tiantai-band .tt-title::before { content: ""; width: 10px; height: 10px; background: var(--accent-deep); display: inline-block; }
+    .tiantai-band p { margin: 0; color: var(--fg-2); font-size: var(--text-sm); }
+
+    /* ── 看板（四列） ── */
+    .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); align-items: start; }
+    .col-head { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: 0.02em; padding-bottom: var(--space-2); border-bottom: 2px solid var(--accent-deep); margin-bottom: var(--space-3); display: flex; justify-content: space-between; align-items: baseline; }
+    .col-head .cnt { font-size: var(--text-xs); color: var(--muted); font-weight: var(--weight-regular); }
+    .col.tiantai .col-head { border-bottom-color: var(--accent-deep); }
+    .col-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+
+    /* ── 卡片 ── */
+    .card { border: 1px solid var(--border); background: #fff; padding: var(--space-4); border-radius: 0; transition: background var(--motion-base) var(--ease-standard); }
+    .card:hover { background: var(--border-soft); }
+    .card .c-top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+    .card .c-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); line-height: 1.25; margin: 0; }
+    .card .c-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--space-2) 0; }
+    .tag { display: inline-block; padding: 4px 12px; font-size: var(--text-xs); font-weight: var(--weight-regular); letter-spacing: 0.02em; border-radius: 0; white-space: nowrap; }
+    .tag-navy { color: var(--accent-deep); background: #edf5ff; }
+    .tag-blue { color: var(--accent); background: #edf5ff; }
+    .tag-gray { color: var(--fg-2); background: var(--surface); }
+    .tag-gold { color: var(--gold); background: #fef7e0; }
+    .tag-new { color: #fff; background: var(--accent); }
+    .tag-urgent { color: #fff; background: var(--danger); }
+    .meta { display: grid; grid-template-columns: 78px 1fr; gap: 4px 12px; font-size: var(--text-sm); margin: var(--space-2) 0; }
+    .meta dt { color: var(--muted); }
+    .meta dd { margin: 0; color: var(--fg); }
+    .meta .num { font-variant-numeric: tabular-nums; }
+    .follow { background: var(--surface); padding: var(--space-2); font-size: var(--text-sm); color: var(--fg-2); border-radius: 0; }
+    .follow b { color: var(--fg); font-weight: var(--weight-medium); }
+    .c-link { display: inline-block; margin-top: var(--space-2); font-size: var(--text-sm); }
+
+    /* ── 行业热点列表 ── */
+    .news-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .news { border: 1px solid var(--border); padding: var(--space-4); border-radius: 0; transition: background var(--motion-base) var(--ease-standard); }
+    .news:hover { background: var(--border-soft); }
+    .news .n-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); line-height: 1.25; }
+    .news .n-rel { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-2) 0 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
+    .news .n-rel b { color: var(--accent-deep); font-weight: var(--weight-medium); }
+
+    /* ── 今日提示 ── */
+    .tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+    .tips li { display: flex; gap: var(--space-3); align-items: flex-start; border: 1px solid var(--border); padding: var(--space-3) var(--space-4); }
+    .tips .idx { flex: 0 0 28px; height: 28px; background: var(--accent-deep); color: #fff; font-weight: var(--weight-semibold); display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+    .tips .t-body { font-size: var(--text-sm); }
+
+    /* ── 页脚（深色） ── */
+    .site-footer { background: #161616; color: rgba(255,255,255,0.82); padding: var(--space-8) 0; font-size: var(--text-xs); line-height: 1.6; }
+    .site-footer a { color: var(--accent-sky); }
+    .site-footer .fb-brand { margin-bottom: var(--space-3); }
+    .site-footer .fb-logo { display: block; margin-bottom: var(--space-2); }
+    .site-footer .fb-title { font-family: var(--font-display); color: #fff; font-size: var(--text-lg); margin: 0 0 var(--space-2); }
+
+    @media (max-width: 1024px) { .board { grid-template-columns: repeat(2, 1fr); } .news-list { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .board { grid-template-columns: 1fr; } .site-header .wordmark { font-size: 24px; } }
+  </style>
+</head>
+<body>
+  <!-- ══════════ 页眉（固定框架，不改） ══════════ -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <!-- 天信红色印章 logo：官网原版 assets/logo.svg，逐字节复制引用，未做任何修改 -->
+        <img class="brand-logo" src="./assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:80px;height:80px;box-sizing:border-box;padding:8px;background:#ffffff;object-fit:contain" />
+        <div class="brand-text">
+          <p class="eyebrow">TIANXIN CPA · DAILY INTELLIGENCE</p>
+          <h1 class="wordmark">天台天信会计师事务所</h1>
+          <p class="sub">每日行业与商机情报看板 · 县城所赋能与外联获客</p>
+        </div>
+      </div>
+      <p class="date">{{DATE}}（{{WEEKDAY}}）· 数据抓取于当日</p>
+    </div>
+  </header>
+
+  <!-- ══════════ 速览（数字必须由当日数据实时算出，严禁沿用模板数字） ══════════ -->
+  <div class="overview">
+    <div class="container">
+      <div class="stat"><div class="n">{{N_LIVE}}</div><div class="l">进行中·可跟进活单</div></div>
+      <div class="stat gold"><div class="n">{{N_TIANTAI}}</div><div class="l">天台县专项（本县）</div></div>
+      <div class="stat"><div class="n">{{N_HOT}}</div><div class="l">行业热点（相关）</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════ 板块一：台州本地商机（重点关注天台县） ══════════ -->
+  <section id="opportunities">
+    <div class="container">
+      <p class="eyebrow-zh">Section 01</p>
+      <div class="section-divider"></div>
+      <h2 class="section-title">台州本地商机</h2>
+      <p class="section-note">重点关注天台县（本所驻地）。商机取近 7 天发布，近 2 天发布标 NEW、≤7 天截止标 急；已定标 / 已过投标截止的历史单不进看板。仅作情报提示，对外动作须经负责人（及事务所）人工复核。</p>
+
+      <!-- 天台县专项：有单列条目；无单则写明"已核查哪几个入口、未检索到"，不得留空 -->
+      <div class="tiantai-band">
+        <h3 class="tt-title">天台县专项（本所驻地 · 最高优先）</h3>
+        <p>{{TIANTAI_TEXT}}</p>
+      </div>
+
+      <!-- 看板：列数随当日实际条目增减（1–3 列）；没有卡片的列整列删除，不要用"暂无"占位卡
+           卡片骨架（每条商机一张，字段缺失写"未披露"）：
+           <div class="col">
+             <div class="col-head">列标题 <span class="cnt">N</span></div>
+             <div class="col-stack">
+               <div class="card">
+                 <div class="c-top"><h4 class="c-title">项目名称</h4></div>
+                 <div class="c-tags"><span class="tag tag-blue">国企采购</span><span class="tag tag-urgent">急 · 11-05 开标</span><span class="tag tag-gray">评分 高</span></div>
+                 <dl class="meta">
+                   <dt>采购人</dt><dd>…</dd>
+                   <dt>预算·限价</dt><dd class="num">…</dd>
+                   <dt>开标</dt><dd class="num">…</dd>
+                   <dt>资质门槛</dt><dd>…</dd>
+                   <dt>地区</dt><dd>…</dd>
+                   <dt>发布</dt><dd class="num">…</dd>
+                 </dl>
+                 <div class="c-tags"><span class="tag tag-navy">可独立投 / 需联合·下级</span></div>
+                 <div class="follow"><b>跟进：</b>谁对接 + 下一步 + 时间点，一句</div>
+                 <a class="c-link" href="原文链接" target="_blank" rel="noopener">查看原文 ↗</a>
+               </div>
+             </div>
+           </div> -->
+      <div class="board">
+        {{OPPORTUNITY_COLUMNS}}
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 板块二：行业热点 ══════════ -->
+  <section id="hotspots">
+    <div class="container">
+      <p class="eyebrow-zh">Section 02</p>
+      <div class="section-divider"></div>
+      <h2 class="section-title">行业热点</h2>
+      <p class="section-note">{{HOTSPOT_NOTE}}</p>
+      <!-- 热点条目骨架：<div class="news"><h3 class="n-title">标题</h3>
+           <div class="c-tags"><span class="tag tag-navy">来源</span><span class="tag tag-gray">评分 …</span></div>
+           <p class="n-rel"><b>相关性：</b>对天信一句话</p></div> -->
+      <div class="news-list">
+        {{HOTSPOT_ITEMS}}
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 板块三：今日提示 ══════════ -->
+  <section id="tips">
+    <div class="container">
+      <p class="eyebrow-zh">Section 03</p>
+      <div class="section-divider"></div>
+      <h2 class="section-title">今日提示</h2>
+      <p class="section-note">最值得负责人关注或可采取行动的事项。</p>
+      <!-- 提示条目骨架：<li><span class="idx">1</span><span class="t-body">正文</span></li> -->
+      <ul class="tips">
+        {{TIP_ITEMS}}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ══════════ 页脚（固定框架） ══════════ -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="fb-brand">
+        <img class="fb-logo" src="./assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:60px;height:60px;box-sizing:border-box;padding:6px;background:#ffffff;object-fit:contain" />
+        <p class="fb-title">天台天信会计师事务所 · TIANXIN CPA</p>
+      </div>
+      <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台、天台县政府门户公共资源交易栏目与采购意向公开、天台县阳光招采平台、浙江省公共资源交易服务平台），抓取于 {{DATE}}。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</p>
+      <p>参考知识库：<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">信永中和智能专业知识库（公开，可智能问答/查文件）</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
