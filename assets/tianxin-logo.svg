@@ -1,0 +1,10 @@
+<svg width="248" height="56" viewBox="0 0 248 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="天台天信会计师事务所 TIANXIN CPA">
+  <!-- 印章（0 圆角，天信品牌 navy #00338D） -->
+  <rect x="0" y="4" width="48" height="48" fill="#00338D"/>
+  <!-- 印章内「天信」白字，竖排（篆意，Noto Serif SC 回退 serif） -->
+  <text x="24" y="25" text-anchor="middle" font-family="'Noto Serif SC','Source Han Serif SC',STSong,SimSun,serif" font-size="20" font-weight="600" fill="#FFFFFF">天</text>
+  <text x="24" y="46" text-anchor="middle" font-family="'Noto Serif SC','Source Han Serif SC',STSong,SimSun,serif" font-size="20" font-weight="600" fill="#FFFFFF">信</text>
+  <!-- 字标 -->
+  <text x="62" y="27" font-family="'Noto Sans SC',Inter,-apple-system,'Segoe UI',Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="1" fill="#00338D">TIANXIN CPA</text>
+  <text x="63" y="44" font-family="'Noto Sans SC',Inter,-apple-system,'Segoe UI',Arial,sans-serif" font-size="9.5" font-weight="500" letter-spacing="1.5" fill="#525252">CERTIFIED PUBLIC ACCOUNTANTS · SINCE 2001</text>
+</svg>

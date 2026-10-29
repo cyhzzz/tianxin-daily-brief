@@ -36,7 +36,7 @@ version: 1.0.0
 
 **工作流（5 步）**：① 多源监测（按"信源清单"逐站抓取，直抓 WebFetch + 限定域名 WebSearch 双轨）→ ② 结构化解析（11 字段，缺失标"未披露"，严禁编造）→ ③ 资质匹配（对照天信画像打 ✅可独立投 / 🔶需联合下级 / ⚪暂不匹配）→ ④ 商机评分（金额×匹配度×紧迫度 三维，高/中/低 排序不编分数）→ ⑤ 跟进建议（谁对接+下一步+时间点，每条 1 句）。
 
-**红线（专家级）**：不替天信向任何业主承诺中标或关系；国企大单证券资格门槛必须如实标注；所有商机仅作情报提示，对外动作须经爸爸（及事务所）人工复核。
+**红线（专家级）**：不替天信向任何业主承诺中标或关系；国企大单证券资格门槛必须如实标注；所有商机仅作情报提示，对外动作须经负责人（及事务所）人工复核。
 
 > 历史衔接：此前 ex_t3AfWD4XzarF 专家亦指向"完善招标商机"同一目标，其方法论已并入上方四步加工与 references/招标商机处理规范.md，本专家规范为统一落地版。
 
@@ -63,19 +63,27 @@ version: 1.0.0
   - 近 2 天发布标 `NEW`、即将截止（≤7天）标 `急`，置顶。
   - 无则写"近 7 天未检索到相关采购"。
 - **板块二 行业热点**：筛选后条目，含 来源 / 站内评分 / 对天信相关性一句话。无则写"今日无直接相关热点"。
-- **板块三 今日提示**：2-4 条最值得爸爸关注或可采取行动的事项。若涉及准则/监管/处罚，附参考入口——信永中和智能专业知识库（公开，可智能问答/查文件）：https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd
+- **板块三 今日提示**：2-4 条最值得负责人关注或可采取行动的事项。若涉及准则/监管/处罚，附参考入口——信永中和智能专业知识库（公开，可智能问答/查文件）：https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd
 - **纪律**：检索不到写"未检索到"；严禁编造金额、截止时间与监管结论；每条标注来源链接。
 - **HTML 看板（同步交付）**：同时生成 `tianxin-dashboard.html`，严格套用天信设计规范令牌（navy `#00338D` / 亮蓝 `#0F62FE` / 金 `#B8860B` / 0 圆角 / Noto Sans SC / tabular-nums / 单屏金≤2 / 禁 emoji·紫·渐变 hero），结构同上方三个板块（商机置前 + 天台县专项）。本仓库 `tianxin-dashboard.html` 即示例模板，云端 agent 定时任务据此每日再生。
+- **logo 与视觉依据（重要）**：看板页眉/页脚使用「天信印章 logo」——navy `#00338D` 方形印章内白字"天信" + "TIANXIN CPA · CERTIFIED PUBLIC ACCOUNTANTS"字标，与官网 `tianxin-cpa-website` 视觉一致。
+  - ⚠️ 官网仓库的 `assets/logo.svg` 是**破损矢量**（imagetracer 转出的废片，opacity≈0.0078，几乎不可见），`logo_*.png` 均为设计稿/展板截图（带网格线/标注/深色卡片），**均不能直接内联**。故看板使用本仓库重建的干净版：`assets/tianxin-logo.svg`（完整 lockup，navy 印章 + 白"天信" + 字标），以及内联于 HTML 页眉/页脚的精简版（守品牌红线：navy 印章、0 圆角、无紫无渐变）。
+  - 若后续官网提供干净 logo 成品，替换 `assets/tianxin-logo.svg` 与 HTML 内联 SVG 即可。
 
 ## 消息推送（pushplus · 5G 消息 + 邮件）
 
-日报生成后，自动推送到两个终端：**① 爸爸手机（中国移动 5G 消息）**、**② 245830958@qq.com（邮件）**。
+日报生成后，自动推送到两个终端：**① 天信负责人手机（中国移动 5G 消息）**、**② 245830958@qq.com（邮件）**。
+
+### 推送机制（关键）
+- **5G 消息（cmcc）**：用 `template:"html"` 发送**完整 HTML 看板**。按 pushplus 官方文档，非 `txt` 模板会把内容托管到 pushplus 页面、5G 消息内呈现「纯文本摘要 + 超链接」，负责人点链接即可在手机查看完整看板——即"把看板托管到 pushplus 页面、短信超链过去"。
+- **邮件（mail）**：用 `template:"html"` 发送完整 HTML 看板全文。
+- ⚠️ **pushplus 单次 content 上限 2 万字**：内置助手先压缩空白；若仍超限，按 HTML 模板里的 `<!-- PUSH-TRIM:history -->…<!-- /PUSH-TRIM:history -->` 标记裁掉最低优先级的「历史参考」列，确保稳定送达（看板模板已为该列加此标记）。
 
 ### 凭证与读取
 - pushplus token：优先读环境变量 `PUSHPLUS_TOKEN`；若未设置，读本仓库本地文件 `references/push-secrets.json`（已被 `.gitignore` 排除，绝不入库）的 `token` 字段。
-- ⚠️ **安全红线**：真实 token 只存于本地密钥文件与运行环境变量，**公开仓库仅保留 `references/push-config.example.md`（占位 token）**。云端 agent 须将 token 设为环境变量 `PUSHPLUS_TOKEN`，切勿把明文 token 写进可公开访问的仓库或 prompt 之外的地方。
+- ⚠️ **安全红线**：真实 token 只存于本地密钥文件与运行环境变量，**公开仓库仅保留 `references/push-config.example.md`（占位 token）**。云端 agent 须将 token 设为环境变量 `PUSHPLUS_TOKEN`。
 - 接收端前置绑定（一次性，由用户完成）：
-  - 5G 消息：爸爸在 pushplus 个人中心 → 渠道配置 → 新消息ClawBot，按文档绑定中国移动号码（发短信"绑定龙虾"到 12520098 授权）。
+  - 5G 消息：负责人在 pushplus 个人中心 → 渠道配置 → 新消息ClawBot，按文档绑定中国移动号码（发短信"绑定龙虾"到 12520098 授权）。
   - 邮件：245830958@qq.com 须绑定到 pushplus 账号邮箱（小程序 → 个人资料 → 邮箱 → 验证）；若该邮箱非 token 所有者本人，则须加为 pushplus 好友并以 `to` 指定。
 
 ### 接口
@@ -85,17 +93,18 @@ version: 1.0.0
 ### 调用方式（推荐 · 跨平台）
 仓库内置助手 `references/push-notify.js`（Node 实现，已在本机实测双渠道 200 成功）：
 ```bash
-node references/push-notify.js "<标题>" "<纯文本摘要(5G消息用)>" "<HTML全文(邮件用)>"
+node references/push-notify.js "<标题>" "<看板HTML文件路径>"
 ```
+- 助手读取 HTML 文件，分别用 `template:"html"` 发 5G 消息（托管看板 + 超链）与邮件（全文），一次发出双渠道；分别打印 HTTP 状态码与 pushplus 返回。
 - token 读取：环境变量 `PUSHPLUS_TOKEN` 优先；否则读同目录 `push-secrets.json`（本地 gitignore，绝不入库）。
-- 该助手**一次发出双渠道**（cmcc 5G消息 + mail 邮件），分别打印 HTTP 状态码与 pushplus 返回；本机 `curl` 因 Windows schannel 证书问题调不通 HTTPS，**统一用此 Node 助手**。
+- 本机 `curl` 因 Windows schannel 证书问题调不通 HTTPS，**统一用此 Node 助手**。
 - 失败（非 200 / 网络错 / 接收端未绑定）不阻断日报，降级为「对话内完整呈现 + 记录失败原因」。
 
 ### 备选：curl（仅 Linux/云 agent 通用；Windows 若报 schannel 握手错，加 `--ssl-no-revoke` 或改用上方 Node 助手）
-5G 消息：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信日报 · {日期}","content":"纯文本摘要","channel":"cmcc","template":"txt"}'`
-邮件：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"HTML或Markdown全文","channel":"mail","template":"html"}'`
-- 5G 消息 content 用**纯文本、精简**（5G 消息不宜长）：板块一商机 Top3（含天台县专项）+ 板块三今日提示 2 条，每条一行。
-- 邮件 `template` 用 `html`（可嵌入看板 HTML）。
+5G 消息：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<HTML看板全文>","channel":"cmcc","template":"html"}'`
+邮件：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<HTML看板全文>","channel":"mail","template":"html"}'`
+- 5G 消息用 `template:"html"` 发完整看板：pushplus 托管页面，5G 消息内带超链。
+- 邮件 `template` 用 `html`（完整看板全文）。
 - 若 245830958@qq.com 非本人邮箱，改好友方式：`"to":"<对方pushplus账号>"`（对方须已绑定该邮箱）。
 - **备选（直接发任意邮箱，无需绑定）**：若运行环境已配置 Agent Mail（`mcp__agent-mail__SendMessage`），可直接把 HTML 日报发到 245830958@qq.com，不依赖 pushplus 邮件绑定——适合确保送达。
 
@@ -103,10 +112,10 @@ node references/push-notify.js "<标题>" "<纯文本摘要(5G消息用)>" "<HTM
 - 仅当日报有实质内容时推送；空报告不推送。
 - 5G 消息与邮件**分两次调用**；任一次失败不影响另一次。
 - 推送失败（HTTP 非 200 / 网络错误 / 接收端未绑定）**不阻断日报产出**，降级为「对话内完整呈现 + 记录失败原因（含返回 code/msg）」，供下次重试。
-- 不推送任何未经爸爸复核的对外承诺性内容。
+- 不推送任何未经负责人复核的对外承诺性内容。
 
 ## 注意事项
 
 - 不替天信承诺任何投标或客户关系；商机仅作情报提示。
 - 国企年审大单通常要求证券服务业务备案资格，天信若不具备，提示"可关注子公司/下级或联合承揽"，不误导。
-- 所有对外/对客户材料仍须经爸爸（及事务所）人工复核。
+- 所有对外/对客户材料仍须经负责人（及事务所）人工复核。

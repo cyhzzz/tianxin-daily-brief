@@ -81,7 +81,14 @@
       font-size: 30px; letter-spacing: var(--tracking-display); line-height: 1.1; margin: 0;
     }
     .site-header .sub { font-size: var(--text-sm); color: rgba(255,255,255,0.78); margin-top: var(--space-1); }
-    .site-header .date { font-size: var(--text-sm); color: rgba(255,255,255,0.9); margin-top: var(--space-2); font-variant-numeric: tabular-nums; }
+    .site-header .date { font-size: var(--text-sm); color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; }
+    /* 页眉布局（参考官网：navy 旗舰带 + 印章 logo + 字标） */
+    .header-inner { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: var(--space-3); }
+    .brand-logo { flex: 0 0 auto; width: 52px; height: 52px; display: block; }
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-text .wordmark { font-size: 28px; }
+    .brand-text .sub { margin-top: 2px; }
 
     /* ── 速览条 ── */
     .overview { border-bottom: 1px solid var(--border); background: var(--surface); }
@@ -149,6 +156,7 @@
     /* ── 页脚（深色） ── */
     .site-footer { background: #161616; color: rgba(255,255,255,0.82); padding: var(--space-8) 0; font-size: var(--text-xs); line-height: 1.6; }
     .site-footer a { color: var(--accent-sky); }
+    .site-footer .fb-brand { margin-bottom: var(--space-3); }
     .site-footer .fb-title { font-family: var(--font-display); color: #fff; font-size: var(--text-lg); margin: 0 0 var(--space-2); }
 
     @media (max-width: 1024px) { .board { grid-template-columns: repeat(2, 1fr); } .news-list { grid-template-columns: 1fr; } }
@@ -157,12 +165,22 @@
 </head>
 <body>
 
-  <!-- 页眉 -->
+  <!-- 页眉（参考天信官网：navy 旗舰带 + 印章 logo + 字标） -->
   <header class="site-header">
-    <div class="container">
-      <p class="eyebrow">Tianxin CPA · Daily Intelligence</p>
-      <h1 class="wordmark">天台天信会计师事务所</h1>
-      <p class="sub">每日行业与商机情报看板 · 县城所赋能与外联获客</p>
+    <div class="container header-inner">
+      <div class="brand">
+        <!-- 天信印章 logo（重建版：官网 logo.svg 为破损矢量，此处按官方识别重绘；完整 lockup 见 assets/tianxin-logo.svg） -->
+        <svg class="brand-logo" width="52" height="52" viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="天台天信会计师事务所">
+          <rect x="0" y="4" width="48" height="48" fill="#00338D"/>
+          <text x="24" y="25" text-anchor="middle" font-family="'Noto Serif SC','Source Han Serif SC',STSong,SimSun,serif" font-size="20" font-weight="600" fill="#FFFFFF">天</text>
+          <text x="24" y="46" text-anchor="middle" font-family="'Noto Serif SC','Source Han Serif SC',STSong,SimSun,serif" font-size="20" font-weight="600" fill="#FFFFFF">信</text>
+        </svg>
+        <div class="brand-text">
+          <p class="eyebrow">TIANXIN CPA · DAILY INTELLIGENCE</p>
+          <h1 class="wordmark">天台天信会计师事务所</h1>
+          <p class="sub">每日行业与商机情报看板 · 县城所赋能与外联获客</p>
+        </div>
+      </div>
       <p class="date">2026-10-29（周四）· 数据抓取于当日</p>
     </div>
   </header>
@@ -183,7 +201,7 @@
       <p class="eyebrow-zh">Section 01</p>
       <div class="section-divider"></div>
       <h2 class="section-title">台州本地商机</h2>
-      <p class="section-note">重点关注天台县（本所驻地）。商机取近 7 天发布，近 2 天发布标 NEW、≤7 天截止标 急；已定标/过期单降级为「历史参考」。仅作情报提示，对外动作须经爸爸（及事务所）人工复核。</p>
+      <p class="section-note">重点关注天台县（本所驻地）。商机取近 7 天发布，近 2 天发布标 NEW、≤7 天截止标 急；已定标/过期单降级为「历史参考」。仅作情报提示，对外动作须经负责人（及事务所）人工复核。</p>
 
       <!-- 天台县专项 -->
       <div class="tiantai-band">
@@ -258,6 +276,7 @@
           </div>
         </div>
 
+        <!-- PUSH-TRIM:history -->
         <!-- 列：历史参考 -->
         <div class="col">
           <div class="col-head">历史参考 · 模式 <span class="cnt">5</span></div>
@@ -294,6 +313,7 @@
             </div>
           </div>
         </div>
+        <!-- /PUSH-TRIM:history -->
 
       </div>
     </div>
@@ -347,7 +367,7 @@
       <p class="eyebrow-zh">Section 03</p>
       <div class="section-divider"></div>
       <h2 class="section-title">今日提示</h2>
-      <p class="section-note">最值得爸爸关注或可采取行动的事项。</p>
+      <p class="section-note">最值得负责人关注或可采取行动的事项。</p>
       <ul class="tips">
         <li><span class="idx">1</span><span class="t-body">浙江证监局启动年报审计随机抽查（中汇项目）——省内监管节奏收紧，建议所内本周安排一次底稿质量自查，重点核对"现金流/利润异常 → 舞弊风险评估"勾稽，呼应深圳中审华处罚案。</span></li>
         <li><span class="idx">2</span><span class="t-body">交投集团 136 万/年审计 11-05 开标——天信无法独立投，但这是台州本年度最透明的国企审计大单样板；建议整理"联合承揽/下级公司审计"话术，作为后续对接交投及同类平台的储备。</span></li>
@@ -360,8 +380,16 @@
   <!-- 页脚 -->
   <footer class="site-footer">
     <div class="container">
-      <p class="fb-title">天台天信会计师事务所</p>
-      <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台），抓取于 2026-10-29。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经爸爸（及事务所）人工复核。</p>
+      <div class="fb-brand">
+        <svg width="196" height="44" viewBox="0 0 248 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="天台天信会计师事务所">
+          <rect x="0" y="4" width="48" height="48" fill="#FFFFFF"/>
+          <text x="24" y="25" text-anchor="middle" font-family="'Noto Serif SC','Source Han Serif SC',STSong,SimSun,serif" font-size="20" font-weight="600" fill="#00338D">天</text>
+          <text x="24" y="46" text-anchor="middle" font-family="'Noto Serif SC','Source Han Serif SC',STSong,SimSun,serif" font-size="20" font-weight="600" fill="#00338D">信</text>
+          <text x="62" y="27" font-family="'Noto Sans SC',Inter,Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="1" fill="#FFFFFF">TIANXIN CPA</text>
+          <text x="63" y="44" font-family="'Noto Sans SC',Inter,Arial,sans-serif" font-size="9.5" font-weight="500" letter-spacing="1.5" fill="rgba(255,255,255,0.7)">CERTIFIED PUBLIC ACCOUNTANTS · SINCE 2001</text>
+        </svg>
+      </div>
+      <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台），抓取于 2026-10-29。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</p>
       <p>参考知识库：<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">信永中和智能专业知识库（公开，可智能问答/查文件）</a></p>
     </div>
   </footer>
