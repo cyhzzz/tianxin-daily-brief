@@ -56,9 +56,30 @@ function absAssets(html) {
  * 混入短信。此函数移除 <style>，改用轻量内联样式保证托管页在手机上仍可读，
  * 短信正文即只剩看板真实内容。
  */
+/** 从 <style> 的 :root 里取出 CSS 变量表，供解析内联 style 里的 var(--x) */
+function cssVars(html) {
+  const m = html.match(/:root\s*\{([\s\S]*?)\}/);
+  const map = {};
+  if (m) m[1].replace(/(--[\w-]+)\s*:\s*([^;]+);/g, (_, k, v) => (map[k] = v.trim()));
+  return map;
+}
+/** 把 var(--x) 替换为实际值（多轮，兼容变量引用变量） */
+function resolveVars(str, map) {
+  let out = str;
+  for (let i = 0; i < 4; i++) {
+    out = out.replace(
+      /var\(\s*(--[\w-]+)\s*(?:,\s*([^)]*))?\)/g,
+      (m, k, fb) => (map[k] !== undefined ? map[k] : (fb || "").trim())
+    );
+  }
+  return out;
+}
+
 function smsSafe(html) {
+  const vars = cssVars(html); // 先取变量表，再移除 <style>
   let out = html.replace(/<style[\s\S]*?<\/style>/gi, "");
   out = out.replace(/<!--[\s\S]*?-->/g, "");
+  out = resolveVars(out, vars); // 内联 style 里的 var(--x) 一并落地，避免托管页取不到值
   const tagStyle = (tag, css) =>
     out = out.replace(
       new RegExp("<" + tag + "(?![^>]*\\sstyle=)([^>]*)>", "gi"),
@@ -158,12 +179,16 @@ function resolveHtml(arg) {
   const smsHtml = minify(smsSafe(absAssets(html)));
   // 邮件：无短信抽取问题，发完整排版版；图片同样转绝对地址
   const mailHtml = absAssets(html);
+  // 短信正文 = pushplus 剥离标签后的文本，这里按同样口径检测，避免把 style 属性误判为正文
+  const smsText = smsHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const dirty = /:root|var\(--|--bg|\{/.test(smsText);
   console.log(
     "5G短信版字符数:",
     smsHtml.length,
-    "｜CSS残留:",
-    /:root|var\(--|--bg/.test(smsHtml) ? "有（异常，需排查）" : "无"
+    "｜短信正文代码残留:",
+    dirty ? "有（异常，需排查）" : "无"
   );
+  console.log("短信正文预览:", smsText.slice(0, 120));
   const cmcc = await send(token, "cmcc", titleArg, smsHtml, "html");
   console.log(cmcc);
   const mail = await send(token, "mail", titleArg, mailHtml, "html");
