@@ -67,6 +67,46 @@ version: 1.0.0
 - **纪律**：检索不到写"未检索到"；严禁编造金额、截止时间与监管结论；每条标注来源链接。
 - **HTML 看板（同步交付）**：同时生成 `tianxin-dashboard.html`，严格套用天信设计规范令牌（navy `#00338D` / 亮蓝 `#0F62FE` / 金 `#B8860B` / 0 圆角 / Noto Sans SC / tabular-nums / 单屏金≤2 / 禁 emoji·紫·渐变 hero），结构同上方三个板块（商机置前 + 天台县专项）。本仓库 `tianxin-dashboard.html` 即示例模板，云端 agent 定时任务据此每日再生。
 
+## 消息推送（pushplus · 5G 消息 + 邮件）
+
+日报生成后，自动推送到两个终端：**① 爸爸手机（中国移动 5G 消息）**、**② 245830958@qq.com（邮件）**。
+
+### 凭证与读取
+- pushplus token：优先读环境变量 `PUSHPLUS_TOKEN`；若未设置，读本仓库本地文件 `references/push-secrets.json`（已被 `.gitignore` 排除，绝不入库）的 `token` 字段。
+- ⚠️ **安全红线**：真实 token 只存于本地密钥文件与运行环境变量，**公开仓库仅保留 `references/push-config.example.md`（占位 token）**。云端 agent 须将 token 设为环境变量 `PUSHPLUS_TOKEN`，切勿把明文 token 写进可公开访问的仓库或 prompt 之外的地方。
+- 接收端前置绑定（一次性，由用户完成）：
+  - 5G 消息：爸爸在 pushplus 个人中心 → 渠道配置 → 新消息ClawBot，按文档绑定中国移动号码（发短信"绑定龙虾"到 12520098 授权）。
+  - 邮件：245830958@qq.com 须绑定到 pushplus 账号邮箱（小程序 → 个人资料 → 邮箱 → 验证）；若该邮箱非 token 所有者本人，则须加为 pushplus 好友并以 `to` 指定。
+
+### 接口
+- 地址：`POST https://www.pushplus.plus/send/{token}`
+- Content-Type：`application/json`；token 同时放 URL 路径与 body。
+
+### ① 5G 消息（给爸爸手机）· channel=cmcc · template=txt
+```bash
+curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"token\":\"${PUSHPLUS_TOKEN}\",\"title\":\"天信日报 · {日期}\",\"content\":\"{纯文本精简摘要}\",\"channel\":\"cmcc\",\"template\":\"txt\"}"
+```
+- content 用**纯文本、精简**（5G 消息不宜长）：板块一商机 Top3（含天台县专项）+ 板块三今日提示 2 条，每条一行。不填 `option`。
+- 适用场景：强提醒、不依赖微信。
+
+### ② 邮件（给 245830958@qq.com）· channel=mail
+```bash
+curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"token\":\"${PUSHPLUS_TOKEN}\",\"title\":\"天信每日日报 · {日期}\",\"content\":\"{HTML或Markdown全文}\",\"channel\":\"mail\",\"template\":\"html\"}"
+```
+- `template` 用 `html`（可嵌入看板 HTML）或 `markdown`。
+- 若 245830958@qq.com 非本人邮箱，改好友方式：`"to":"<对方pushplus账号>"`（对方须已绑定该邮箱）。
+- **备选（直接发任意邮箱，无需绑定）**：若运行环境已配置 Agent Mail（`mcp__agent-mail__SendMessage`），可直接把 HTML 日报发到 245830958@qq.com，不依赖 pushplus 邮件绑定——适合确保送达。
+
+### 推送纪律
+- 仅当日报有实质内容时推送；空报告不推送。
+- 5G 消息与邮件**分两次调用**；任一次失败不影响另一次。
+- 推送失败（HTTP 非 200 / 网络错误 / 接收端未绑定）**不阻断日报产出**，降级为「对话内完整呈现 + 记录失败原因（含返回 code/msg）」，供下次重试。
+- 不推送任何未经爸爸复核的对外承诺性内容。
+
 ## 注意事项
 
 - 不替天信承诺任何投标或客户关系；商机仅作情报提示。
