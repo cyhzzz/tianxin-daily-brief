@@ -41,6 +41,48 @@ function minify(html) {
     .trim();
 }
 
+/* 图片资源改为绝对地址：看板里的 ./assets/xxx 在本地能显示，
+   但推到 pushplus 托管页 / 邮件里相对路径会失效，这里统一换成 GitHub 原文件地址。 */
+const ASSET_BASE =
+  "https://raw.githubusercontent.com/cyhzzz/tianxin-daily-brief/master/assets/";
+function absAssets(html) {
+  return html.replace(/(src=)(["'])\.?\/?assets\//g, "$1$2" + ASSET_BASE);
+}
+
+/**
+ * 生成「5G 消息安全版」HTML。
+ * 背景：cmcc(5G 消息) 通道下 pushplus 会剥离 HTML 标签、把剩余文本作为短信正文，
+ * 并附「查看详情」链接。若 content 里带 <style>，CSS（:root{--bg...} 等）会被当成正文
+ * 混入短信。此函数移除 <style>，改用轻量内联样式保证托管页在手机上仍可读，
+ * 短信正文即只剩看板真实内容。
+ */
+function smsSafe(html) {
+  let out = html.replace(/<style[\s\S]*?<\/style>/gi, "");
+  out = out.replace(/<!--[\s\S]*?-->/g, "");
+  const tagStyle = (tag, css) =>
+    out = out.replace(
+      new RegExp("<" + tag + "(?![^>]*\\sstyle=)([^>]*)>", "gi"),
+      "<" + tag + ' style="' + css + '"$1>'
+    );
+  tagStyle("table", "border-collapse:collapse;width:100%;font-size:13px;margin:12px 0");
+  tagStyle("th", "border:1px solid #d0d0d0;padding:6px 8px;background:#f4f4f4;text-align:left;font-weight:600");
+  tagStyle("td", "border:1px solid #e0e0e0;padding:6px 8px;vertical-align:top");
+  tagStyle("h1", "font-size:20px;margin:16px 0 8px;color:#00338D");
+  tagStyle("h2", "font-size:16px;margin:14px 0 6px;color:#00338D");
+  tagStyle("h3", "font-size:14px;margin:12px 0 6px;color:#161616");
+  tagStyle("p", "margin:8px 0;line-height:1.6");
+  tagStyle("li", "margin:4px 0;line-height:1.6");
+  tagStyle("section", "margin:16px 0");
+  tagStyle("header", "margin:0 0 16px");
+  tagStyle("footer", "margin:24px 0 0;padding-top:12px;border-top:1px solid #e0e0e0");
+  out = out.replace(/<body([^>]*)>/i, (m, attrs) =>
+    /style=/i.test(attrs)
+      ? m
+      : '<body' + attrs + ' style="font-family:-apple-system,\'PingFang SC\',\'Microsoft YaHei\',Arial,sans-serif;padding:12px;color:#161616;background:#ffffff;line-height:1.6">'
+  );
+  return out;
+}
+
 function prepare(raw) {
   let html = minify(raw);
   if (html.length <= LIMIT) return { html, trimmed: false };
@@ -112,8 +154,18 @@ function resolveHtml(arg) {
   }
   const { html, trimmed } = prepare(raw);
   console.log("看板字符数:", html.length, trimmed ? "（已按优先级精简至 2 万字内）" : "（原始，未超上限）");
-  const cmcc = await send(token, "cmcc", titleArg, html, "html");
+  // 5G 消息：发「去 <style> 的轻量内联版」，确保短信正文只含看板真实内容
+  const smsHtml = minify(smsSafe(absAssets(html)));
+  // 邮件：无短信抽取问题，发完整排版版；图片同样转绝对地址
+  const mailHtml = absAssets(html);
+  console.log(
+    "5G短信版字符数:",
+    smsHtml.length,
+    "｜CSS残留:",
+    /:root|var\(--|--bg/.test(smsHtml) ? "有（异常，需排查）" : "无"
+  );
+  const cmcc = await send(token, "cmcc", titleArg, smsHtml, "html");
   console.log(cmcc);
-  const mail = await send(token, "mail", titleArg, html, "html");
+  const mail = await send(token, "mail", titleArg, mailHtml, "html");
   console.log(mail);
 })();
