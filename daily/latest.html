@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>天信每日情报看板 · 2026-10-29</title>
+  <title>天信每日情报看板 · 2026-10-30</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet" />
@@ -170,8 +170,7 @@
   </style>
 </head>
 <body>
-
-  <!-- 页眉（参考天信官网：navy 旗舰带 + 印章 logo + 字标） -->
+  <!-- ══════════ 页眉（固定框架，不改） ══════════ -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
@@ -183,48 +182,57 @@
           <p class="sub">每日行业与商机情报看板 · 县城所赋能与外联获客</p>
         </div>
       </div>
-      <p class="date">2026-10-29（周四）· 数据抓取于当日</p>
+      <p class="date">2026-10-30（周五）· 数据抓取于当日</p>
     </div>
   </header>
 
-  <!-- 速览 -->
+  <!-- ══════════ 速览（数字必须由当日数据实时算出，严禁沿用模板数字） ══════════ -->
   <div class="overview">
     <div class="container">
-      <div class="stat"><div class="n">2</div><div class="l">进行中·可跟进活单</div></div>
+      <div class="stat"><div class="n">1</div><div class="l">进行中·可跟进活单</div></div>
       <div class="stat gold"><div class="n">0</div><div class="l">天台县专项（本县）</div></div>
-      <div class="stat"><div class="n">5</div><div class="l">历史参考·模式</div></div>
-      <div class="stat"><div class="n">5</div><div class="l">行业热点（相关）</div></div>
+      <div class="stat"><div class="n">7</div><div class="l">行业热点（相关）</div></div>
     </div>
   </div>
 
-  <!-- 今日摘要：5G 短信正文即取本区块（id=sms-summary），须保持简短 -->
-  <div class="container">
-    <div id="sms-summary" class="sms-summary">
-      <p>商机 2 条（天台县 0）｜行业热点 5 条</p>
-      <p>① 台州市交通投资集团 财报审计+季度审阅 · 11-05 开标 · 需联合承揽</p>
-      <p>② 黄岩区商务局 以旧换新专项审计 · 可独立投</p>
-    </div>
-  </div>
-
-  <!-- 板块一：台州本地商机（重点关注天台县） -->
+  <!-- ══════════ 板块一：台州本地商机（重点关注天台县） ══════════ -->
   <section id="opportunities">
     <div class="container">
       <p class="eyebrow-zh">Section 01</p>
       <div class="section-divider"></div>
       <h2 class="section-title">台州本地商机</h2>
-      <p class="section-note">重点关注天台县（本所驻地）。商机取近 7 天发布，近 2 天发布标 NEW、≤7 天截止标 急；已定标/过期单降级为「历史参考」。仅作情报提示，对外动作须经负责人（及事务所）人工复核。</p>
+      <p class="section-note">重点关注天台县（本所驻地）。商机取近 7 天发布，近 2 天发布标 NEW、≤7 天截止标 急；已定标 / 已过投标截止的历史单不进看板。仅作情报提示，对外动作须经负责人（及事务所）人工复核。</p>
 
-      <!-- 天台县专项 -->
+      <!-- 天台县专项：有单列条目；无单则写明"已核查哪几个入口、未检索到"，不得留空 -->
       <div class="tiantai-band">
         <h3 class="tt-title">天台县专项（本所驻地 · 最高优先）</h3>
-        <p>近 7 天未检索到天台县（代理记账 / 财务审计 / 会计服务 / 绩效评价 / 竣工决算）相关采购或中介竞价公告。已用「天台」关键词在浙江政采网、台州市中介服务网单独检索一遍，本县暂无公开活单；建议持续常监测天台县司法局、机关事务中心及各乡镇，主动触达。</p>
+        <p>近 7 天未检索到天台县（代理记账 / 财务审计 / 会计服务 / 绩效评价 / 竣工决算）相关活单。已逐一核查五个天台本地入口：县政府门户公共资源交易栏目（最新 10-29 智能水表澄清修改，工程/货物类）、县政府“公告公示”栏目、中介服务网天台分区、天台县阳光招采平台、浙江省公共资源交易服务平台。天信已在「天台县会计审计·预算绩效评价框架协议采购」（TTCG-2025-KJ002）库内，本县增量主要来自库内派单与新一轮征集。</p>
       </div>
 
-      <!-- 看板 -->
+      <!-- 看板：列数随当日实际条目增减（1–3 列）；没有卡片的列整列删除，不要用"暂无"占位卡
+           卡片骨架（每条商机一张，字段缺失写"未披露"）：
+           <div class="col">
+             <div class="col-head">列标题 <span class="cnt">N</span></div>
+             <div class="col-stack">
+               <div class="card">
+                 <div class="c-top"><h4 class="c-title">项目名称</h4></div>
+                 <div class="c-tags"><span class="tag tag-blue">国企采购</span><span class="tag tag-urgent">急 · 11-05 开标</span><span class="tag tag-gray">评分 高</span></div>
+                 <dl class="meta">
+                   <dt>采购人</dt><dd>…</dd>
+                   <dt>预算·限价</dt><dd class="num">…</dd>
+                   <dt>开标</dt><dd class="num">…</dd>
+                   <dt>资质门槛</dt><dd>…</dd>
+                   <dt>地区</dt><dd>…</dd>
+                   <dt>发布</dt><dd class="num">…</dd>
+                 </dl>
+                 <div class="c-tags"><span class="tag tag-navy">可独立投 / 需联合·下级</span></div>
+                 <div class="follow"><b>跟进：</b>谁对接 + 下一步 + 时间点，一句</div>
+                 <a class="c-link" href="原文链接" target="_blank" rel="noopener">查看原文 ↗</a>
+               </div>
+             </div>
+           </div> -->
       <div class="board">
-
-        <!-- 列：进行中·高优先 -->
-        <div class="col">
+                <div class="col">
           <div class="col-head">进行中 · 高优先 <span class="cnt">1</span></div>
           <div class="col-stack">
             <div class="card">
@@ -241,161 +249,95 @@
                 <dt>预算·限价</dt><dd class="num">136 万元/年（审计 116 + 审阅 20）</dd>
                 <dt>服务期</dt><dd>2026-2028（三年）</dd>
                 <dt>开标</dt><dd class="num">2026-11-05 09:00</dd>
-                <dt>资质门槛</dt><dd>证券服务业务备案 + 执业许可证；项目负责人 CPA、10 年及以上</dd>
+                <dt>资质门槛</dt><dd>证券服务业务备案 + 执业许可证；项目负责人 CPA、10 年及以上；不接受联合体</dd>
                 <dt>地区</dt><dd>椒江区（市本级）</dd>
                 <dt>发布</dt><dd class="num">2026-10-15</dd>
               </dl>
               <div class="c-tags"><span class="tag tag-navy">需联合/下级</span></div>
-              <div class="follow"><b>跟进：</b>天信无证券资格，无法独立投；建议对接交投财务或中标所（中证天通、大信等），探讨分包其子公司/下级公司审计，或争取 2028 轮换窗口。</div>
+              <div class="follow"><b>跟进：</b>天信无证券资格，无法独立投；建议对接交投财务或中标所，探讨分包其子公司/下级公司审计，或争取 2028 轮换窗口。开标倒计时 6 天。</div>
               <a class="c-link" href="https://ggzy.tzztb.zjtz.gov.cn/jyxx/002007/002007001/20261015/351f68d8-5cbf-41d1-8342-222de3869ea0.html" target="_blank" rel="noopener">查看原文 ↗</a>
             </div>
           </div>
         </div>
-
-        <!-- 列：可独立投 -->
-        <div class="col">
-          <div class="col-head">可独立投 · 进行中 <span class="cnt">1</span></div>
-          <div class="col-stack">
-            <div class="card">
-              <div class="c-top">
-                <h4 class="c-title">黄岩区商务局 2026 年度消费品以旧换新项目专项审计</h4>
-              </div>
-              <div class="c-tags">
-                <span class="tag tag-navy">政府采购·行政事业</span>
-                <span class="tag tag-gray">评分 中</span>
-              </div>
-              <dl class="meta">
-                <dt>采购人</dt><dd>台州市黄岩区商务局（黄岩区）</dd>
-                <dt>预算·限价</dt><dd class="num">未披露</dd>
-                <dt>截止</dt><dd>未披露（磋商公告已发布，需盯政采云）</dd>
-                <dt>资质门槛</dt><dd>会计师事务所执业证书（专项审计，通常无需证券资格）</dd>
-                <dt>地区</dt><dd>黄岩区</dd>
-                <dt>发布</dt><dd class="num">2026-10（近期）</dd>
-              </dl>
-              <div class="c-tags"><span class="tag tag-navy">可独立投</span></div>
-              <div class="follow"><b>跟进：</b>建议所里关注政采云「黄岩区商务局」采购意向/公告，准备专项审计方案；可与玉环/仙居框架协议入围经验复用。</div>
-              <a class="c-link" href="https://zfcg.czt.zj.gov.cn/luban/detail?parentId=600007&articleId=2t2xUrEuVL4xti5nx+E31Q==" target="_blank" rel="noopener">查看原文 ↗</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- 列：需联合·下级 -->
-        <div class="col">
-          <div class="col-head">需联合 · 下级 <span class="cnt">0</span></div>
-          <div class="col-stack">
-            <div class="card"><p style="margin:0;color:var(--muted);font-size:var(--text-sm);">近 7 天无新增需联合承揽的活单（交投集团已列入「高优先」列）。</p></div>
-          </div>
-        </div>
-
-        <!-- PUSH-TRIM:history -->
-        <!-- 列：历史参考 -->
-        <div class="col">
-          <div class="col-head">历史参考 · 模式 <span class="cnt">5</span></div>
-          <div class="col-stack">
-            <div class="card">
-              <div class="c-top"><h4 class="c-title">台州循环经济发展有限公司 2026-2028 专项审计</h4></div>
-              <div class="c-tags"><span class="tag tag-gray">已定标 · 历史单</span></div>
-              <dl class="meta"><dt>中标</dt><dd>中证天通（176 万/年 + 审阅 36 万/年）</dd><dt>状态</dt><dd class="num">2026-06 已定标</dd></dl>
-              <div class="follow"><b>模式：</b>印证台州国企审计大单由具备证券资格大所承接，天信宜走联合/下级路径。</div>
-            </div>
-            <div class="card">
-              <div class="c-top"><h4 class="c-title">台州开投集团 2026-2028 财报审计</h4></div>
-              <div class="c-tags"><span class="tag tag-gray">已开标 · 历史单</span></div>
-              <dl class="meta"><dt>预算</dt><dd class="num">120 万/年 + 10 万/次审阅</dd><dt>状态</dt><dd class="num">2026-09-15 已开标（需证券资格）</dd></dl>
-              <div class="follow"><b>模式：</b>同类市属国企年审，关注下期轮换窗口。</div>
-            </div>
-            <div class="card">
-              <div class="c-top"><h4 class="c-title">路桥街道村级集体经济组织及强村公司审计（2025-2026）</h4></div>
-              <div class="c-tags"><span class="tag tag-gray">历史单</span></div>
-              <dl class="meta"><dt>预算</dt><dd class="num">30 万</dd><dt>资质</dt><dd>执业证书</dd><dt>状态</dt><dd class="num">2025-06 招标</dd></dl>
-              <div class="follow"><b>模式：</b>路桥街道有村级审计小单，可关注下期。</div>
-            </div>
-            <div class="card">
-              <div class="c-top"><h4 class="c-title">三门县中介竞价小单（近期频出）</h4></div>
-              <div class="c-tags"><span class="tag tag-gray">已成交 · 模式</span></div>
-              <dl class="meta"><dt>示例</dt><dd>现代建材决算 12 万（10-08 成交·三门三信）、恒立新材料财务审计 3 万（10-22 成交·中审众环宁波）、机关事务中心决算 2.18 万（8 月）</dd></dl>
-              <div class="follow"><b>模式：</b>三门县司法局常态放单；天台县同资质，天信应主动触达天台县中介服务网同类入口。</div>
-            </div>
-            <div class="card">
-              <div class="c-top"><h4 class="c-title">玉环市 / 仙居县 会计审计框架协议（2025-2026）</h4></div>
-              <div class="c-tags"><span class="tag tag-gray">已入围结束</span></div>
-              <dl class="meta"><dt>入围</dt><dd>健丰印刷、华明所</dd><dt>状态</dt><dd>本期已结束</dd></dl>
-              <div class="follow"><b>模式：</b>关注下期征集公告，天信可准备入库。</div>
-            </div>
-          </div>
-        </div>
-        <!-- /PUSH-TRIM:history -->
-
       </div>
     </div>
   </section>
 
-  <!-- 板块二：行业热点 -->
+  <!-- ══════════ 板块二：行业热点 ══════════ -->
   <section id="hotspots">
     <div class="container">
       <p class="eyebrow-zh">Section 02</p>
       <div class="section-divider"></div>
       <h2 class="section-title">行业热点</h2>
-      <p class="section-note">来源：审计热点站 hot.auditdog.cn（每日聚合）。筛选与天信（浙江/县城所、监管处罚、AI 赋能、准则）相关条目。评分高且主题相关优先保留。</p>
+      <p class="section-note">来源：审计热点站 hot.auditdog.cn —— <b>站点最新一期为 2026-10-29，2026-10-30 尚未聚合（该站常滞后 0–1 天），已如实标注</b>；并按兜底规则补充检索财政部及财政部北京/甘肃监管局等信源，确保当日有内容。筛选与天信（浙江/县城所、监管处罚、AI 赋能、准则实务）相关条目。</p>
+      <!-- 热点条目骨架：<div class="news"><h3 class="n-title">标题</h3>
+           <div class="c-tags"><span class="tag tag-navy">来源</span><span class="tag tag-gray">评分 …</span></div>
+           <p class="n-rel"><b>相关性：</b>对天信一句话</p></div> -->
       <div class="news-list">
-        <div class="news">
-          <h3 class="n-title">浙江证监局随机抽取中汇 2 个 2025 年年报审计项目现场检查</h3>
-          <div class="c-tags"><span class="tag tag-navy">中国注册会计师俱乐部</span><span class="tag tag-gray">评分 6363</span></div>
-          <p class="n-rel"><b>相关性：</b>浙江属地监管动态，直接关系省内所执业风险画像；县城所应关注"随机抽查 + 报告审阅"趋势，强化底稿质量。</p>
+                <div class="news">
+          <h3 class="n-title">清越科技 3.7 亿赔付基金由谁承担，立信此前收取 1663 万审计费</h3>
+          <div class="c-tags"><span class="tag tag-navy">审见微光</span><span class="tag tag-gray">评分 7070</span></div>
+          <p class="n-rel"><b>相关性：</b>IPO 中介责任与赔付分摊的标杆案例（上市前虚增利润占当期利润 131.74%、签字 CPA 出具标准无保留意见）。天信承接本地企业改制/辅导时，须留存舞弊风险评估与底稿的完整证据链。</p>
         </div>
         <div class="news">
           <h3 class="n-title">深圳证监局对中审华行政处罚，暂停证券业务半年</h3>
           <div class="c-tags"><span class="tag tag-navy">破碎审计</span><span class="tag tag-gray">评分 7272</span></div>
-          <p class="n-rel"><b>相关性：</b>监管对舞弊风险评估"走过场"零容忍；印证天信 AI 运用红线——AI 标记异常是辅助，CPA 最终担责。可作所内培训案例。</p>
+          <p class="n-rel"><b>相关性：</b>舞弊风险评估“走过场”被顶格处罚：底稿记录现金流为负、利润异常，评价表却认定无舞弊风险。印证所内 AI 运用红线——AI 可标记异常，最终担责的仍是 CPA。可作培训案例。</p>
         </div>
         <div class="news">
-          <h3 class="n-title">广东证监局对立信及签字注会出具警示函</h3>
-          <div class="c-tags"><span class="tag tag-navy">证监会广东局</span><span class="tag tag-gray">评分 6464</span></div>
-          <p class="n-rel"><b>相关性：</b>头部所亦被警示，中小所更需把"监管处罚对照"纳入底稿复核点。</p>
+          <h3 class="n-title">浙江证监局随机抽取中汇 2 个 2025 年年报审计项目开展现场检查</h3>
+          <div class="c-tags"><span class="tag tag-navy">中国注册会计师俱乐部</span><span class="tag tag-gray">评分 5656</span></div>
+          <p class="n-rel"><b>相关性：</b>浙江属地随机抽查常态化（依据证监发〔2015〕80 号）。省内所均应把“报告份数—签字 CPA 数—底稿覆盖”纳入自查，别等抽中才补底稿。</p>
         </div>
         <div class="news">
-          <h3 class="n-title">山东注协公开谴责企衡（济南）会计师事务所</h3>
+          <h3 class="n-title">山东注协公开谴责企衡（济南）会计师事务所：3 名 CPA、两月报备 7755 份报告</h3>
           <div class="c-tags"><span class="tag tag-navy">王耀武会计小文艺</span><span class="tag tag-gray">评分 9393</span></div>
-          <p class="n-rel"><b>相关性：</b>县城/小所底稿质量红线案例；天信应建立"报告份数—签字 CPA 数—底稿覆盖"自查机制。</p>
+          <p class="n-rel"><b>相关性：</b>县城小所最典型的红线案例（抽取 20 份底稿即发现未履行必要程序）。天信应按“人均报告份数”设内部预警，避免业务量压过质量。</p>
         </div>
         <div class="news">
-          <h3 class="n-title">富恒新材拟改聘深圳旭泰承接 2026 年财报及内控审计</h3>
-          <div class="c-tags"><span class="tag tag-navy">巨潮</span><span class="tag tag-gray">评分 5858</span></div>
-          <p class="n-rel"><b>相关性：</b>上市公司改聘信号；虽非天信客群，但反映"保留意见 → 改聘"链条，县城所服务本地企业时可提前识别风险客户。</p>
+          <h3 class="n-title">审计之家整理 93 项竣工决算审计常见问题并列出官方定性依据</h3>
+          <div class="c-tags"><span class="tag tag-navy">审计之家</span><span class="tag tag-gray">评分 6161</span></div>
+          <p class="n-rel"><b>相关性：</b>按前期立项、勘察设计、招标、施工监理、竣工决算五阶段拆解，每项给出查找路径与定性依据（财建〔2016〕503/504 号、《政府投资条例》等）。可直接用于天台县政府投资项目决算业务。</p>
         </div>
         <div class="news">
-          <h3 class="n-title">其他主题：准则与数智化</h3>
-          <div class="c-tags"><span class="tag tag-gray">今日分布</span></div>
-          <p class="n-rel"><b>相关性：</b>黄金租赁金融工具核算、企会 28 号实务问答、财政部会计数智化内控政策、美国所 AI 代理式审计/税务、AICPA SOC 2 修订纳入 AI 治理、FASB 权益法修订。</p>
+          <h3 class="n-title">补充信源 · 新修改《注册会计师法》2027-01-01 施行；财政部《会计师事务所职业责任保险实施办法》（财会〔2026〕12 号）</h3>
+          <div class="c-tags"><span class="tag tag-navy">财政部 / 财政部北京监管局</span><span class="tag tag-gray">评分 —</span></div>
+          <p class="n-rel"><b>相关性：</b>直接关系所内职业风险基金与投保安排：累计赔偿限额达标的可按程序不再提取职业风险基金。建议本月核对本所投保方案，并对接 2027 年监管口径。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">逆行的狗分享 SW 审计工具箱等免费审计资料（可接入 DeepSeek 读账套、Excel 对话改表）</h3>
+          <div class="c-tags"><span class="tag tag-navy">逆行的狗</span><span class="tag tag-gray">评分 5757</span></div>
+          <p class="n-rel"><b>相关性：</b>与所里 AI 赋能路线高度契合：账套清洗 + 70 余个效率小工具 + 公开知识库。可评估作为忙季工具组合的一部分（建项目受限，按反馈 bug 换取权限）。</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 板块三：今日提示 -->
+  <!-- ══════════ 板块三：今日提示 ══════════ -->
   <section id="tips">
     <div class="container">
       <p class="eyebrow-zh">Section 03</p>
       <div class="section-divider"></div>
       <h2 class="section-title">今日提示</h2>
       <p class="section-note">最值得负责人关注或可采取行动的事项。</p>
+      <!-- 提示条目骨架：<li><span class="idx">1</span><span class="t-body">正文</span></li> -->
       <ul class="tips">
-        <li><span class="idx">1</span><span class="t-body">浙江证监局启动年报审计随机抽查（中汇项目）——省内监管节奏收紧，建议所内本周安排一次底稿质量自查，重点核对"现金流/利润异常 → 舞弊风险评估"勾稽，呼应深圳中审华处罚案。</span></li>
-        <li><span class="idx">2</span><span class="t-body">交投集团 136 万/年审计 11-05 开标——天信无法独立投，但这是台州本年度最透明的国企审计大单样板；建议整理"联合承揽/下级公司审计"话术，作为后续对接交投及同类平台的储备。</span></li>
-        <li><span class="idx">3</span><span class="t-body">三门县中介竞价频出、天台县同类入口待激活——建议把"天台县中介服务网"加入常监测清单，所里可主动对接天台县司法局/机关事务中心，争取本地决算/财务审计小单。</span></li>
-        <li><span class="idx">4</span><span class="t-body">准则/监管速查入口：今日涉及多项监管处罚与准则（企会 28 号、SOC 2、权益法），遇有疑难可智能问答/查文件——<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">信永中和智能专业知识库（公开）</a>。</span></li>
+                <li><span class="idx">1</span><span class="t-body">📅 固定核查项：天台县会计审计·预算绩效评价框架协议（TTCG-2025-KJ002）新一轮征集未命中，2025-2026 年度库内资格仍有效。周边县已在换库（三门 2025-2027、宁波 2025-2027、仙居 2025-2026 陆续入围），天台库到期后须重新申请方能留库——建议本月致电天台县公共资源交易中心确认换库窗口，漏报即丧失本县会计审计单准入。</span></li>
+        <li><span class="idx">2</span><span class="t-body">交投集团 136 万/年审计 11-05 开标（倒计时 6 天）：天信无证券资格无法独立投，建议整理“联合承揽 / 下级公司审计”话术，作为后续对接交投及同类平台的储备。</span></li>
+        <li><span class="idx">3</span><span class="t-body">新修改《注册会计师法》2027-01-01 施行，配套职业责任保险办法（财会〔2026〕12 号）：建议本月核对本所职业责任保险累计赔偿限额与职业风险基金安排，并更新出具前复核清单——呼应财政部“报告审阅直接读取已出具报告、而非进场查底稿”的监管口径。</span></li>
+        <li><span class="idx">4</span><span class="t-body">准则与工具速查：今日涉及多起处罚与准则实务（企会 28 号、竣工决算 93 项），遇疑难可智能问答/查文件——<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">信永中和智能专业知识库（公开）</a>。</span></li>
       </ul>
     </div>
   </section>
 
-  <!-- 页脚 -->
+  <!-- ══════════ 页脚（固定框架） ══════════ -->
   <footer class="site-footer">
     <div class="container">
       <div class="fb-brand">
         <img class="fb-logo" src="../assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:60px;height:60px;box-sizing:border-box;padding:6px;background:#ffffff;object-fit:contain" />
         <p class="fb-title">天台天信会计师事务所 · TIANXIN CPA</p>
       </div>
-      <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台），抓取于 2026-10-29。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</p>
+      <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台、天台县政府门户公共资源交易栏目与采购意向公开、天台县阳光招采平台、浙江省公共资源交易服务平台），抓取于 2026-10-30。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</p>
       <p>参考知识库：<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">信永中和智能专业知识库（公开，可智能问答/查文件）</a></p>
     </div>
   </footer>
