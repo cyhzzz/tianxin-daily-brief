@@ -82,22 +82,20 @@ version: 1.0.0
 - 地址：`POST https://www.pushplus.plus/send/{token}`
 - Content-Type：`application/json`；token 同时放 URL 路径与 body。
 
-### ① 5G 消息（给爸爸手机）· channel=cmcc · template=txt
+### 调用方式（推荐 · 跨平台）
+仓库内置助手 `references/push-notify.js`（Node 实现，已在本机实测双渠道 200 成功）：
 ```bash
-curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "{\"token\":\"${PUSHPLUS_TOKEN}\",\"title\":\"天信日报 · {日期}\",\"content\":\"{纯文本精简摘要}\",\"channel\":\"cmcc\",\"template\":\"txt\"}"
+node references/push-notify.js "<标题>" "<纯文本摘要(5G消息用)>" "<HTML全文(邮件用)>"
 ```
-- content 用**纯文本、精简**（5G 消息不宜长）：板块一商机 Top3（含天台县专项）+ 板块三今日提示 2 条，每条一行。不填 `option`。
-- 适用场景：强提醒、不依赖微信。
+- token 读取：环境变量 `PUSHPLUS_TOKEN` 优先；否则读同目录 `push-secrets.json`（本地 gitignore，绝不入库）。
+- 该助手**一次发出双渠道**（cmcc 5G消息 + mail 邮件），分别打印 HTTP 状态码与 pushplus 返回；本机 `curl` 因 Windows schannel 证书问题调不通 HTTPS，**统一用此 Node 助手**。
+- 失败（非 200 / 网络错 / 接收端未绑定）不阻断日报，降级为「对话内完整呈现 + 记录失败原因」。
 
-### ② 邮件（给 245830958@qq.com）· channel=mail
-```bash
-curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "{\"token\":\"${PUSHPLUS_TOKEN}\",\"title\":\"天信每日日报 · {日期}\",\"content\":\"{HTML或Markdown全文}\",\"channel\":\"mail\",\"template\":\"html\"}"
-```
-- `template` 用 `html`（可嵌入看板 HTML）或 `markdown`。
+### 备选：curl（仅 Linux/云 agent 通用；Windows 若报 schannel 握手错，加 `--ssl-no-revoke` 或改用上方 Node 助手）
+5G 消息：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信日报 · {日期}","content":"纯文本摘要","channel":"cmcc","template":"txt"}'`
+邮件：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"HTML或Markdown全文","channel":"mail","template":"html"}'`
+- 5G 消息 content 用**纯文本、精简**（5G 消息不宜长）：板块一商机 Top3（含天台县专项）+ 板块三今日提示 2 条，每条一行。
+- 邮件 `template` 用 `html`（可嵌入看板 HTML）。
 - 若 245830958@qq.com 非本人邮箱，改好友方式：`"to":"<对方pushplus账号>"`（对方须已绑定该邮箱）。
 - **备选（直接发任意邮箱，无需绑定）**：若运行环境已配置 Agent Mail（`mcp__agent-mail__SendMessage`），可直接把 HTML 日报发到 245830958@qq.com，不依赖 pushplus 邮件绑定——适合确保送达。
 
