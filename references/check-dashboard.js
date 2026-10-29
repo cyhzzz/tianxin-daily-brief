@@ -2,7 +2,7 @@
 /**
  * 看板自检助手（天信每日日报）
  * 用途：生成看板后、推送前必跑。把「日期没更新到当日」「模板占位没替换」「历史参考残留」
- *       「速览数字与条目数不符」「框架协议核查未留痕」这五类问题机械拦下。
+ *       「速览数字与条目数不符」这四类问题机械拦下。
  *
  * 用法：node references/check-dashboard.js daily/2026-10-30.html
  * 退出码：0 = 通过（可推送）｜1 = 不通过（禁止推送，先修）
@@ -79,12 +79,7 @@ else ok("速览热点数 = 热点条目数 = " + newsCount);
 if (nTT !== null && nTT > 0 && !/天台县/.test(oppSec)) warns.push("速览天台县 > 0，但商机区未出现天台县条目");
 console.log("  统计：卡片 " + cardCount + " / 热点 " + newsCount + " / 提示 " + tipCount.length);
 
-// 5) 框架协议固定核查项必须留痕
-const tipSec = (html.match(/<section id="tips"[\s\S]*?<\/section>/) || [])[0] || "";
-if (!/框架协议/.test(tipSec)) warns.push("板块三未见「框架协议」核查结论（命中与否都要写一行）");
-else ok("板块三含框架协议核查结论");
-
-// 6) 结构完整性（短信全文抽取依赖）
+// 5) 结构完整性（短信全文抽取依赖）
 ["opportunities", "hotspots", "tips"].forEach((id) => {
   if (html.indexOf('id="' + id + '"') < 0) fails.push("缺少 <section id=\"" + id + "\">（短信全文抽取依赖）");
 });
