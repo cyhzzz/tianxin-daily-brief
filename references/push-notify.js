@@ -75,6 +75,149 @@ function resolveVars(str, map) {
   return out;
 }
 
+/**
+ * 把 <style> 里的样式内联到各元素（jsdom 负责选择器匹配），然后移除 <style>。
+ * 用途：邮件客户端（QQ 邮箱等）常剥离 <style>，且不支持 CSS 变量；
+ * 内联后版式才能保住，同时也不会让 CSS 混进 5G 短信正文。
+ * jsdom 不可用时返回 null，由调用方降级为「保留 <style>」。
+ */
+function inlineCss(html) {
+  let JSDOM = null;
+  for (const p of [
+    "jsdom",
+    "C:/Users/cyhzz/.workbuddy/binaries/node/workspace/node_modules/jsdom",
+  ]) {
+    try {
+      JSDOM = require(p).JSDOM;
+      break;
+    } catch (e) {}
+  }
+  if (!JSDOM) return null;
+  const vars = cssVars(html); // CSS 变量表（jsdom 对自定义属性支持有限，这里手工解析）
+  const dom = new JSDOM(html);
+  const doc = dom.window.document;
+  const resolve = (v) => resolveVars(v, vars);
+  const SKIP_PROPS = ["transition", "animation", "cursor"];
+  const ZERO_OK = ["border-radius", "box-shadow", "text-transform", "border"];
+  const INHERITED = [
+    "color", "font", "font-family", "font-size", "font-weight", "font-style",
+    "font-variant-numeric", "letter-spacing", "line-height", "text-align",
+    "text-transform", "white-space", "list-style", "visibility", "word-spacing",
+  ];
+  const added = new Map();
+  const track = (el, prop) => {
+    if (!added.has(el)) added.set(el, []);
+    added.get(el).push(prop);
+  };
+  // 继承去重：与父级生效值相同的可继承属性不再重复内联，显著压缩体积
+  const leanInherited = (doc) => {
+    const walk = (el, inherited) => {
+      const eff = Object.assign({}, inherited);
+      (added.get(el) || []).forEach((p) => {
+        if (INHERITED.indexOf(p) < 0) return;
+        const v = el.style.getPropertyValue(p);
+        if (inherited[p] !== undefined && inherited[p] === v) el.style.removeProperty(p);
+      });
+      const st = el.style;
+      for (let i = 0; i < st.length; i++) {
+        const p = st.item(i);
+        if (INHERITED.indexOf(p) >= 0) eff[p] = st.getPropertyValue(p);
+      }
+      Array.prototype.forEach.call(el.children, (c) => walk(c, eff));
+    };
+    walk(doc.documentElement, {});
+  };
+  const applyRule = (rule) => {
+    const sel = (rule.selectorText || "").trim();
+    if (!sel || sel.indexOf(":") >= 0) return; // 伪类/伪元素无法内联，跳过
+    let els;
+    try {
+      els = doc.querySelectorAll(sel);
+    } catch (e) {
+      return;
+    }
+    const st = rule.style;
+    const names = [];
+    for (let i = 0; i < st.length; i++) names.push(st.item(i));
+    names.forEach((prop) => {
+      if (prop.indexOf("--") === 0) return;
+      if (SKIP_PROPS.indexOf(prop) >= 0) return; // 动效类属性不内联
+      const val = resolve(st.getPropertyValue(prop));
+      if (!val) return;
+      // 零值属性不内联（品牌本身 0 圆角，border-radius:0 纯属浪费字符）
+      if ((val === "0" || val === "0px" || val === "none") && ZERO_OK.indexOf(prop) >= 0) return;
+      const pri = st.getPropertyPriority(prop);
+      Array.prototype.forEach.call(els, (el) => {
+        // 元素自带的内联样式优先，不覆盖（如 logo 的白色底衬）
+        if (elHasProp(el, prop)) return;
+        el.style.setProperty(prop, val, pri);
+        track(el, prop);
+      });
+    });
+  };
+  function elHasProp(el, prop) {
+    const s = el.getAttribute("style") || "";
+    return new RegExp("(^|;)\\s*" + prop.replace(/[-]/g, "\\-") + "\\s*:").test(s);
+  }
+  Array.prototype.forEach.call(doc.styleSheets, (ss) => {
+    let rules;
+    try {
+      rules = ss.cssRules;
+    } catch (e) {
+      return;
+    }
+    Array.prototype.forEach.call(rules, (r) => {
+      if (r.type === 1) applyRule(r); // 普通规则
+      else if (r.type === 4 && r.cssRules)
+        // @media：后应用，让移动端规则覆盖桌面规则
+        Array.prototype.forEach.call(r.cssRules, (x) => {
+          if (x.type === 1) applyRule(x);
+        });
+    });
+  });
+  Array.prototype.forEach.call(doc.querySelectorAll("style"), (s) => s.remove());
+  leanInherited(doc); // 继承去重，压缩体积以适配 pushplus 2 万字上限
+  return resolveVars(dom.serialize(), vars); // 残留 var()（元素自带内联里的）一并落地
+}
+
+/**
+ * 保留 <style>，但把 <style> 内与内联 style 里的 var(--x) 全部落地为实际值。
+ * 用途：邮件客户端多不支持 CSS 变量，落地后版式才稳；且不增加体积，守住 2 万字上限。
+ * （完整内联版见 inlineCss，体积更大，仅在不超过上限时使用。）
+ */
+function resolveStyleVars(html) {
+  const vars = cssVars(html);
+  return html
+    .replace(/<style([\s\S]*?)<\/style>/gi, (m, inner) => "<style" + resolveVars(inner, vars) + "</style>")
+    .replace(/ style="([^"]*)"/g, (m, v) => ' style="' + resolveVars(v, vars) + '"');
+}
+
+/**
+ * 抽取短信摘要：看板中 id="sms-summary" 的区块（纯文本）。
+ * 5G 消息按 pushplus 文档用 template:"txt"，正文会尽量完整展示，
+ * 所以这里必须给「短」内容，短信才不会太长。
+ */
+function extractSummary(html) {
+  const m = html.match(/<div id="sms-summary"[^>]*>([\s\S]*?)<\/div>/i);
+  if (!m) {
+    return html
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200);
+  }
+  const text = m[1]
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .split("\n")
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+  return text.length > 600 ? text.slice(0, 600) : text;
+}
+
 function smsSafe(html) {
   const vars = cssVars(html); // 先取变量表，再移除 <style>
   let out = html.replace(/<style[\s\S]*?<\/style>/gi, "");
@@ -175,22 +318,20 @@ function resolveHtml(arg) {
   }
   const { html, trimmed } = prepare(raw);
   console.log("看板字符数:", html.length, trimmed ? "（已按优先级精简至 2 万字内）" : "（原始，未超上限）");
-  // 5G 消息：发「去 <style> 的轻量内联版」，确保短信正文只含看板真实内容
-  const smsHtml = minify(smsSafe(absAssets(html)));
-  // 邮件：无短信抽取问题，发完整排版版；图片同样转绝对地址
-  const mailHtml = absAssets(html);
-  // 短信正文 = pushplus 剥离标签后的文本，这里按同样口径检测，避免把 style 属性误判为正文
-  const smsText = smsHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  const dirty = /:root|var\(--|--bg|\{/.test(smsText);
-  console.log(
-    "5G短信版字符数:",
-    smsHtml.length,
-    "｜短信正文代码残留:",
-    dirty ? "有（异常，需排查）" : "无"
-  );
-  console.log("短信正文预览:", smsText.slice(0, 120));
-  const cmcc = await send(token, "cmcc", titleArg, smsHtml, "html");
+  const full = absAssets(html); // 图片转绝对地址，托管页/邮件才能显示
+  const summary = extractSummary(full); // 5G 短信：只发短摘要（template:txt）
+  const inlined = inlineCss(full); // 邮件/托管页：CSS 转内联，版式才不会丢
+  console.log("短信摘要字符数:", summary.length, "（目标 ≤ 300）");
+  console.log("--- 短信正文 ---\n" + summary + "\n----------------");
+  const cmcc = await send(token, "cmcc", titleArg, summary, "txt");
   console.log(cmcc);
-  const mail = await send(token, "mail", titleArg, mailHtml, "html");
+  const lean = resolveStyleVars(full); // 邮件版：保留 <style>，但 CSS 变量全部落地
+  const mailBody = inlined && inlined.length <= LIMIT ? inlined : lean;
+  console.log(
+    "邮件版式:",
+    mailBody === inlined ? "CSS 已内联" : "保留 <style>（变量已落地，邮件端兼容性更好）",
+    "｜字符数:", mailBody.length, "｜var 残留:", mailBody.indexOf("var(--") >= 0 ? "有" : "无"
+  );
+  const mail = await send(token, "mail", titleArg, mailBody, "html");
   console.log(mail);
 })();

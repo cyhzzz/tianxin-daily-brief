@@ -74,9 +74,14 @@ version: 1.0.0
 
 日报生成后，自动推送到两个终端：**① 天信负责人手机（中国移动 5G 消息）**、**② 245830958@qq.com（邮件）**。
 
-### 推送机制（关键）
-- **5G 消息（cmcc）**：用 `template:"html"` 发送**完整 HTML 看板**。按 pushplus 官方文档，非 `txt` 模板会把内容托管到 pushplus 页面、5G 消息内呈现「纯文本摘要 + 超链接」，负责人点链接即可在手机查看完整看板——即"把看板托管到 pushplus 页面、短信超链过去"。
-- **邮件（mail）**：用 `template:"html"` 发送完整 HTML 看板全文。
+### 推送机制（关键 · 两通道内容不同，不可混用）
+- **5G 消息（cmcc）＝ 短摘要**：用 `template:"txt"` 发送**简短纯文本摘要（3–5 行，目标 ≤300 字）**。
+  - 依据 pushplus 官方文档：`txt` 模板"正文会尽量完整展示"，非 `txt` 模板会转成纯文本摘要——**若把整份看板发进去，短信正文会长到没法读**。
+  - 摘要来源：助手自动抽取看板中 `id="sms-summary"` 区块的纯文本；点开 pushplus 托管页链接看到的也是这份摘要。
+  - 摘要内容：日期 + 商机条数（含天台县条数）+ 行业热点条数 + 前 2 条重点商机（名称＋关键时间/动作）＋"完整看板见今日邮件"。
+- **邮件（mail）＝ 完整看板**：用 `template:"html"` 发送完整看板全文，细节全部在这里看。
+- ⚠️ **生成看板时必须带 `id="sms-summary"` 摘要区块**（置于速览之后、板块一之前，页面上也作为"今日速览"展示）。缺失时助手会退化为截取正文前 200 字，短信质量无保障。区块内只用 `<p>`，不要嵌套 `<div>`。
+- 邮件版会把 `<style>` 内的 `var(--x)` 全部落地为实际值后再发出——邮件客户端多不支持 CSS 变量，不落地会丢版式。
 - ⚠️ **pushplus 单次 content 上限 2 万字**：内置助手先压缩空白；若仍超限，按 HTML 模板里的 `<!-- PUSH-TRIM:history -->…<!-- /PUSH-TRIM:history -->` 标记裁掉最低优先级的「历史参考」列，确保稳定送达（看板模板已为该列加此标记）。
 
 ### 凭证与读取
@@ -95,15 +100,15 @@ version: 1.0.0
 ```bash
 node references/push-notify.js "<标题>" "<看板HTML文件路径>"
 ```
-- 助手读取 HTML 文件，分别用 `template:"html"` 发 5G 消息（托管看板 + 超链）与邮件（全文），一次发出双渠道；分别打印 HTTP 状态码与 pushplus 返回。
+- 助手读取 HTML 文件：5G 消息用 `template:"txt"` 发**摘要**，邮件用 `template:"html"` 发**完整看板**；一次运行发出双渠道，分别打印 HTTP 状态码与 pushplus 返回，并回显短信摘要正文供核对。
 - token 读取：环境变量 `PUSHPLUS_TOKEN` 优先；否则读同目录 `push-secrets.json`（本地 gitignore，绝不入库）。
 - 本机 `curl` 因 Windows schannel 证书问题调不通 HTTPS，**统一用此 Node 助手**。
 - 失败（非 200 / 网络错 / 接收端未绑定）不阻断日报，降级为「对话内完整呈现 + 记录失败原因」。
 
 ### 备选：curl（仅 Linux/云 agent 通用；Windows 若报 schannel 握手错，加 `--ssl-no-revoke` 或改用上方 Node 助手）
-5G 消息：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<HTML看板全文>","channel":"cmcc","template":"html"}'`
+5G 消息（发摘要，勿发全文）：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<3-5行纯文本摘要>","channel":"cmcc","template":"txt"}'`
 邮件：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<HTML看板全文>","channel":"mail","template":"html"}'`
-- 5G 消息用 `template:"html"` 发完整看板：pushplus 托管页面，5G 消息内带超链。
+- 5G 消息用 `template:"txt"` 发短摘要（`txt` 模板正文会尽量完整展示，所以内容必须短）。
 - 邮件 `template` 用 `html`（完整看板全文）。
 - 若 245830958@qq.com 非本人邮箱，改好友方式：`"to":"<对方pushplus账号>"`（对方须已绑定该邮箱）。
 - **备选（直接发任意邮箱，无需绑定）**：若运行环境已配置 Agent Mail（`mcp__agent-mail__SendMessage`），可直接把 HTML 日报发到 245830958@qq.com，不依赖 pushplus 邮件绑定——适合确保送达。

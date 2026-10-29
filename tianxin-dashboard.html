@@ -98,6 +98,10 @@
     .overview .stat .l { font-size: var(--text-xs); color: var(--muted); letter-spacing: 0.02em; }
     .overview .stat.gold .n { color: var(--gold); }
 
+    /* 今日摘要（短信正文取此区块，页面上也作为速览展示） */
+    .sms-summary { background: var(--surface); border: 1px solid var(--border); padding: var(--space-3) var(--space-4); margin: var(--space-4) 0 0; font-size: var(--text-sm); line-height: 1.75; }
+    .sms-summary p { margin: 0; }
+
     /* ── 区块 ── */
     section { padding: var(--space-12) 0; }
     section + section { border-top: 1px solid var(--border); }
@@ -190,6 +194,17 @@
       <div class="stat gold"><div class="n">0</div><div class="l">天台县专项（本县）</div></div>
       <div class="stat"><div class="n">5</div><div class="l">历史参考·模式</div></div>
       <div class="stat"><div class="n">5</div><div class="l">行业热点（相关）</div></div>
+    </div>
+  </div>
+
+  <!-- 今日摘要：5G 短信正文即取本区块（id=sms-summary），须保持简短 -->
+  <div class="container">
+    <div id="sms-summary" class="sms-summary">
+      <p><strong>天信每日日报 · 2026-10-29</strong></p>
+      <p>商机 2 条（天台县 0）｜行业热点 5 条</p>
+      <p>① 台州市交通投资集团 财报审计+季度审阅 · 11-05 开标 · 需联合承揽</p>
+      <p>② 黄岩区商务局 以旧换新专项审计 · 可独立投</p>
+      <p>完整看板见今日邮件</p>
     </div>
   </div>
 
