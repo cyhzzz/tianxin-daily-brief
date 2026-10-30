@@ -86,9 +86,11 @@ version: 1.0.0
 | 文件 | 性质 | 说明 |
 |---|---|---|
 | `templates/dashboard-template.html` | **框架（唯一权威模板）** | 只有 CSS 设计系统 + 结构骨架 + `{{占位符}}` + 注释里的标签骨架；**不含任何真实日期、条目、数字** |
-| `daily/{日期}.html` | 当日产出 | 由模板复制后填内容；同时覆盖 `daily/latest.html` |
+| `daily/{日期}.html` | 当日产出 | 由模板复制后填内容、**内联 logo**；同时覆盖 `daily/latest.html` |
 | `daily/{日期}.md` | 当日 Markdown 日报 | 与看板同内容 |
 | `examples/` | 历史样例 | 仅作参考，**不得当作模板复制** |
+
+> 体积：内联 logo 后单份 html ≈ 470KB（logo 原件 170KB 的 base64）。`daily/` **只保留最近 7 天**，更早的删除（历史价值归 `examples/` 与 git 历史）。
 
 **占位符（生成时必须全部替换，一个都不能留）**：
 `{{DATE}}`（YYYY-MM-DD，页眉/标题/页脚三处一致）· `{{WEEKDAY}}`（周X）· `{{N_LIVE}}`（活单数）· `{{N_TIANTAI}}`（天台县条数）· `{{N_HOT}}`（热点条数）· `{{TIANTAI_TEXT}}`（天台县专项结论）· `{{OPPORTUNITY_COLUMNS}}`（商机列/卡片）· `{{HOTSPOT_NOTE}}`（热点来源与口径说明）· `{{HOTSPOT_ITEMS}}` · `{{TIP_ITEMS}}`
@@ -97,15 +99,20 @@ version: 1.0.0
 1. **先取当日真实日期**：执行命令取系统日期（Linux/云：`date +%F`；Windows：`powershell -c Get-Date -Format yyyy-MM-dd`）。**严禁沿用模板或样例里的日期，也严禁凭模型记忆写日期。**
 2. 抓取全部信源（含热点站滞后兜底、天台县专项检索）。
 3. 复制 `templates/dashboard-template.html` 为 `daily/{日期}.html`，逐项填内容；`daily/latest.html` 同步覆盖。
-4. 生成 `daily/{日期}.md`（Markdown 日报，三板块同结构）。
-5. 调用推送助手（见下节）。
-6. **自检（生成后必做，见下）**，不通过不许推送。
+4. **内联 logo**：`node references/inline-logo.js daily/{日期}.html daily/latest.html`
+   - 必须做。看板常被单独打开（本地双击、预览面板、发给他人），那时 `../assets/` 会 404 → logo 加载不出来（已踩过）。内联后单文件自包含，任何环境都能显示。
+   - 内联的仍是 `assets/tianxin-logo.svg` 原件（base64），不重绘、不精简。推送时助手会自动换回公网地址，不会撑爆 2 万字上限。
+5. 生成 `daily/{日期}.md`（Markdown 日报，三板块同结构）。
+6. **自检（见下）**，不通过不许推送。
+7. 调用推送助手（见下节）。
 
-**自检清单（4 项，逐项核对）**：
+**自检清单（6 项，逐项核对；`node references/check-dashboard.js daily/{日期}.html` 会机械校验前 5 项）**：
 1. 看板内**所有日期 == 当日系统日期**（页眉 `class="date"`、`<title>`、页脚"抓取于"三处）。
 2. 文件中**不含任何 `{{` 占位残留**（检索 `{{` 应为 0 命中）。
 3. 文件中**不含 `历史参考`**（已移除该区）。
 4. 速览区三个数字 == 实际卡片数 / 天台县条目数 / 热点条目数（数字由数据算出，不硬编码）。
+5. logo 已内联为 data URI（未内联会 WARN 提示去跑 `inline-logo.js`）。
+6. **短信字数 ≤ 420**（跑 `push-notify.js` 时会在控制台回显，超出会自动降档，留意别把关键条目挤掉）。
 
 **视觉规范**：严格套用天信设计规范令牌（navy `#00338D` / 亮蓝 `#0F62FE` / 金 `#B8860B` / 0 圆角 / Noto Sans SC / tabular-nums / 单屏金≤2 / 禁 emoji·紫·渐变 hero）。模板 CSS **不要改**，只填内容。
 - **logo 与视觉依据（重要）**：看板页眉/页脚使用**官网原版红色印章 logo**——`assets/tianxin-logo.svg`，系 `天信本身/tianxin-cpa-website-gh-pages/assets/logo.svg` 的**逐字节复制**（MD5 `204782fa7e60739961528848a6499108`）。

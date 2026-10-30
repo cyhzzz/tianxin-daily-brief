@@ -54,12 +54,22 @@ function minify(html) {
     .trim();
 }
 
-/* 图片资源改为绝对地址：看板里的 ./assets/xxx 在本地能显示，
-   但推到 pushplus 托管页 / 邮件里相对路径会失效，这里统一换成 GitHub 原文件地址。 */
+/* 图片资源改为绝对地址。
+   看板为「单文件自包含」，logo 以 data URI 内联（生成时由 inline-logo.js 写入），
+   好处是本地/预览面板打开都能显示；但 data URI 约 23 万字符，直接发会爆 pushplus
+   2 万字上限，故推送前统一换回 GitHub 原文件地址（同一份官网原版文件，未做修改）。 */
 const ASSET_BASE =
   "https://raw.githubusercontent.com/cyhzzz/tianxin-daily-brief/master/assets/";
 function absAssets(html) {
-  return html.replace(/(src=)(["'])\.?\/?assets\//g, "$1$2" + ASSET_BASE);
+  // ① data URI → 公网原图
+  html = html.replace(/src=(["'])data:image\/[a-z+]*;base64,[A-Za-z0-9+/=\s]*\1/gi, function (
+    _m,
+    q
+  ) {
+    return "src=" + q + ASSET_BASE + "tianxin-logo.svg" + q;
+  });
+  // ② 相对路径 → 公网原图
+  return html.replace(/(src=)(["'])\.{0,2}\/?assets\//g, "$1$2" + ASSET_BASE);
 }
 
 /**
@@ -452,10 +462,13 @@ function resolveHtml(arg) {
     console.log("SKIP: 缺少看板 HTML 内容/路径，跳过推送。");
     process.exit(0);
   }
-  const { html, trimmed } = prepare(raw);
+  // ⚠️ 顺序关键：必须先 absAssets 再 prepare。
+  //    看板为单文件自包含（logo 内联为 data URI，约 227KB×2），若先 prepare 会被 2 万字
+  //    上限硬截断，正文和短信抽取都会丢。换成公网地址后体积回落到 20KB 级。
+  const full = absAssets(raw);
+  const { html, trimmed } = prepare(full);
   console.log("看板字符数:", html.length, trimmed ? "（已精简至 2 万字内）" : "（原始，未超上限）");
-  const full = absAssets(html); // 图片转绝对地址，托管页/邮件才能显示
-  const inlined = inlineCss(full); // 邮件：CSS 转内联（jsdom 可用且不超上限时才用）
+  const inlined = inlineCss(html); // 邮件：CSS 转内联（jsdom 可用且不超上限时才用）
   const date = (String(titleArg).match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || todayStr();
 
   // ① 全文文案（编号 + 要点）：不依赖任何外链即可读全
@@ -489,7 +502,7 @@ function resolveHtml(arg) {
   console.log("--- 短信正文 ---\n" + smsBody + "\n----------------");
   const cmcc = await send(token, "cmcc", titleArg, smsBody, "txt");
   console.log(cmcc);
-  const lean = resolveStyleVars(full); // 邮件版：保留 <style>，但 CSS 变量全部落地
+  const lean = resolveStyleVars(html); // 邮件版：保留 <style>，但 CSS 变量全部落地（基于已 minify 的 html，避免超 2 万字）
   const mailBody = inlined && inlined.length <= LIMIT ? inlined : lean;
   console.log(
     "邮件版式:",

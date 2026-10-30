@@ -83,7 +83,11 @@ console.log("  统计：卡片 " + cardCount + " / 热点 " + newsCount + " / �
 ["opportunities", "hotspots", "tips"].forEach((id) => {
   if (html.indexOf('id="' + id + '"') < 0) fails.push("缺少 <section id=\"" + id + "\">（短信全文抽取依赖）");
 });
-if (!/assets\/tianxin-logo\.svg/.test(html)) warns.push("未见 logo 引用（应为 ../assets/tianxin-logo.svg）");
+// logo 应为内联 data URI（单文件自包含，本地/预览面板打开都能显示）
+if (/src=["']data:image\/svg\+xml;base64,/.test(html)) ok("logo 已内联（单文件自包含）");
+else if (/assets\/tianxin-logo\.svg/.test(html))
+  warns.push("logo 用相对路径，单独打开 html 会 404；建议跑 node references/inline-logo.js 内联");
+else warns.push("未见 logo");
 
 console.log("");
 if (warns.length) warns.forEach((w) => console.log("  WARN " + w));
