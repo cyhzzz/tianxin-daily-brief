@@ -174,8 +174,10 @@
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-        <!-- 天信红色印章 logo：官网原版 assets/logo.svg，逐字节复制引用，未做任何修改 -->
-        <img class="brand-logo" src="./assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:80px;height:80px;box-sizing:border-box;padding:8px;background:#ffffff;object-fit:contain" />
+        <!-- 天信红色印章 logo：官网原版 assets/logo.svg，逐字节复制引用，未做任何修改。
+             路径用 ../assets/ —— 模板与产出都位于仓库根下一层（templates/、daily/），两处均正确。
+             若把 html 挪到仓库根目录，须改回 ./assets/，否则 logo 加载不出来。 -->
+        <img class="brand-logo" src="../assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:80px;height:80px;box-sizing:border-box;padding:8px;background:#ffffff;object-fit:contain" />
         <div class="brand-text">
           <p class="eyebrow">TIANXIN CPA · DAILY INTELLIGENCE</p>
           <h1 class="wordmark">天台天信会计师事务所</h1>
@@ -271,7 +273,7 @@
   <footer class="site-footer">
     <div class="container">
       <div class="fb-brand">
-        <img class="fb-logo" src="./assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:60px;height:60px;box-sizing:border-box;padding:6px;background:#ffffff;object-fit:contain" />
+        <img class="fb-logo" src="../assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:60px;height:60px;box-sizing:border-box;padding:6px;background:#ffffff;object-fit:contain" />
         <p class="fb-title">天台天信会计师事务所 · TIANXIN CPA</p>
       </div>
       <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台、天台县政府门户公共资源交易栏目与采购意向公开、天台县阳光招采平台、浙江省公共资源交易服务平台），抓取于 {{DATE}}。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</p>

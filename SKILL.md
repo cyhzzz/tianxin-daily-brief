@@ -110,75 +110,21 @@ version: 1.0.0
 **视觉规范**：严格套用天信设计规范令牌（navy `#00338D` / 亮蓝 `#0F62FE` / 金 `#B8860B` / 0 圆角 / Noto Sans SC / tabular-nums / 单屏金≤2 / 禁 emoji·紫·渐变 hero）。模板 CSS **不要改**，只填内容。
 - **logo 与视觉依据（重要）**：看板页眉/页脚使用**官网原版红色印章 logo**——`assets/tianxin-logo.svg`，系 `天信本身/tianxin-cpa-website-gh-pages/assets/logo.svg` 的**逐字节复制**（MD5 `204782fa7e60739961528848a6499108`）。
   - 🔴 **红线：不得重绘、不得精简、不得改 opacity，只能复制引用**。该文件由 imagetracer 导出，含 16 条 opacity 0.0078/0 的不可见废路径（占约 174KB），真实渲染的是 4 条深红 `#A42325` 路径。此前自绘 navy 印章与"精简版"均已被否，勿再尝试。
-  - 红章压在 navy 页眉/深色页脚上会发闷，故给 `<img>` 加**白色浅底衬**（padding + `background:#ffffff`，0 圆角），且必须写成**内联 style**（推送版会剥离 `<style>`，只有内联样式在邮件与托管页同样生效）。
+  - 红章压在 navy 页眉/深色页脚上会发闷，故给 `<img>` 加**白色浅底衬**（padding + `background:#ffffff`，0 圆角），且必须写成**内联 style**（推送版会剥离 `<style>`，只有内联样式在邮件里同样生效）。
 
-## 消息推送（pushplus · 5G 消息 + 邮件）
+## 消息推送
 
-日报生成后，自动推送到两个终端：**① 天信负责人手机（中国移动 5G 消息）**、**② 245830958@qq.com（邮件）**。
+推送机制、短信压缩规则、凭证读取、故障排查，**全部见 `references/推送规范.md`（唯一权威）**，本文件不重复。
 
-### 推送机制（关键 · 短信发全文文案，不依赖链接）
-1. **5G 消息（cmcc）＝ 纯文本全文**（`template:"txt"`）：编号 + 要点罗列，把三个板块的内容**全部用文案写完**，负责人在短信里就能读完全部，不需要点任何链接。
-   - 为什么不再用「摘要 + 跳转链接」：云端 agent 常无仓库写入凭据，`git push` 失败 → 看板发不到公网 → 短信里的链接打不开，负责人只能看到几行摘要。全文文案不受此影响。
-   - 内置助手 `buildSmsText()` 自动从看板结构生成，格式为：
-     ```
-     天信每日日报 · {日期}
-     商机 N 条｜天台县 M 条｜热点 K 条
+生成看板并经自检通过后，执行：
 
-     一、台州本地商机（N）
-     1. {项目名称}
-        · 采购人：…｜预算·限价：…｜开标/截止：…
-        · 判定：可独立投/需联合/暂不匹配 ｜ 评分 高/中/低
-        · 跟进：…
-        · 原文：{链接}
-     二、行业热点（K）
-     1. {标题}
-        · {对天信相关性一句话}
-     三、今日提示（T）
-     1. …
-     ```
-   - 依赖的看板结构（生成看板时务必保持）：`<section id="opportunities">` 内含 `<div class="card">`（含 `<h4 class="c-title">`、`<dl class="meta">` 的 dt/dd、`<span class="tag">`、`<div class="follow">`、`<a class="c-link">`）；`<section id="hotspots">` 内含 `<div class="news">`（含 `<h3 class="n-title">`、`<p class="n-rel">`）；`<section id="tips">` 内含 `<li><span class="idx">`/`<span class="t-body">`；速览区 `<div class="stat"><div class="n">…` 取天台县条数。无 `c-title` 的卡片视为空列占位，自动跳过。
-2. **看板发布到公网（尽力而为，非必需）**：助手把看板写入 `daily/{日期}.html`（并覆盖 `daily/latest.html`）后 `git push`，地址 `https://cyhzzz.github.io/tianxin-daily-brief/daily/{日期}.html`。**成功才在短信末尾附一行「完整看板：{url}」；失败不阻断**，短信照发全文。
-3. **邮件（mail）＝ 完整看板**：`template:"html"` 发送完整 HTML 看板全文，细节全部在这里看。
-4. ⚠️ **pushplus 单次 content 上限 2 万字**：助手先压缩空白；超限按 `</section>` 硬截断并附说明。看板已移除「历史参考」列，正常不会触发。
-- 邮件版会把 `<style>` 内的 `var(--x)` 全部落地为实际值后再发出——邮件客户端多不支持 CSS 变量，不落地会丢版式。
-
-### 凭证与读取
-- pushplus token：优先读环境变量 `PUSHPLUS_TOKEN`；若未设置，读本仓库本地文件 `references/push-secrets.json`（已被 `.gitignore` 排除，绝不入库）的 `token` 字段。
-- ⚠️ **安全红线**：真实 token 只存于本地密钥文件与运行环境变量，**公开仓库仅保留 `references/push-config.example.md`（占位 token）**。云端 agent 须将 token 设为环境变量 `PUSHPLUS_TOKEN`。
-- 接收端前置绑定（一次性，由用户完成）：
-  - 5G 消息：负责人在 pushplus 个人中心 → 渠道配置 → 新消息ClawBot，按文档绑定中国移动号码（发短信"绑定龙虾"到 12520098 授权）。
-  - 邮件：245830958@qq.com 须绑定到 pushplus 账号邮箱（小程序 → 个人资料 → 邮箱 → 验证）；若该邮箱非 token 所有者本人，则须加为 pushplus 好友并以 `to` 指定。
-
-### 接口
-- 地址：`POST https://www.pushplus.plus/send/{token}`
-- Content-Type：`application/json`；token 同时放 URL 路径与 body。
-
-### 调用方式（推荐 · 跨平台）
-仓库内置助手 `references/push-notify.js`（Node 实现，已在本机实测双渠道 200 成功）：
 ```bash
 node references/push-notify.js "天信每日日报 · {日期}" "daily/{日期}.html"
 ```
-- 助手读取看板 → 生成全文文案 → **尽力发布** `daily/{日期}.html` 到 GitHub Pages（等构建，成功才在短信末尾附链接；失败不阻断）→ 5G 消息发**纯文本全文**（`template:"txt"`），邮件发**完整看板**（`template:"html"`）；一次运行发出双渠道，分别打印 HTTP 状态码与 pushplus 返回，并回显短信正文供核对。
-- token 读取：环境变量 `PUSHPLUS_TOKEN` 优先；否则读同目录 `push-secrets.json`（本地 gitignore，绝不入库）。
-- 本机 `curl` 因 Windows schannel 证书问题调不通 HTTPS，**统一用此 Node 助手**。
-- 无 git 写入凭据时 `git push` 会失败 → 助手自动跳过发布、照常发全文短信（已设 `GIT_TERMINAL_PROMPT=0`，不会卡在凭据交互）。
-- 失败（非 200 / 网络错 / 接收端未绑定）不阻断日报，降级为「对话内完整呈现 + 记录失败原因」。
 
-### 备选：curl（仅 Linux/云 agent 通用；Windows 若报 schannel 握手错，加 `--ssl-no-revoke` 或改用上方 Node 助手）
-> 仅作兜底：curl 方式不会做「CSS 变量落地」与「全文文案自动抽取」，需手工准备 content；能用 Node 助手就用。
-
-5G 消息（**发全文文案**，编号 + 要点）：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<纯文本全文，编号+要点>","channel":"cmcc","template":"txt"}'`
-邮件：`curl -sS -X POST "https://www.pushplus.plus/send/${PUSHPLUS_TOKEN}" -H "Content-Type: application/json" -d '{"token":"'$PUSHPLUS_TOKEN'","title":"天信每日日报 · {日期}","content":"<HTML看板全文>","channel":"mail","template":"html"}'`
-- 5G 消息用 `template:"txt"` 发**纯文本全文**（`txt` 模板正文会尽量完整展示）。
-- 邮件 `template` 用 `html`（完整看板全文）。
-- 若 245830958@qq.com 非本人邮箱，改好友方式：`"to":"<对方pushplus账号>"`（对方须已绑定该邮箱）。
-- **备选（直接发任意邮箱，无需绑定）**：若运行环境已配置 Agent Mail（`mcp__agent-mail__SendMessage`），可直接把 HTML 日报发到 245830958@qq.com，不依赖 pushplus 邮件绑定——适合确保送达。
-
-### 推送纪律
-- 仅当日报有实质内容时推送；空报告不推送。
-- 5G 消息与邮件**分两次调用**；任一次失败不影响另一次。
-- 推送失败（HTTP 非 200 / 网络错误 / 接收端未绑定）**不阻断日报产出**，降级为「对话内完整呈现 + 记录失败原因（含返回 code/msg）」，供下次重试。
-- 不推送任何未经负责人复核的对外承诺性内容。
+- 5G 消息（cmcc）发**要点压缩版纯文本**（编号 + 要点，默认 ≤420 字）；邮件（mail）发**完整看板**。
+- **不发布到任何公网**：GitHub Pages 路线已废弃（云端无 git 写凭据、构建延迟导致链接 404），短信与邮件都不依赖外链。
+- 失败不阻断日报产出，降级为「对话内完整呈现 + 记录返回 code/msg」。
 
 ## 注意事项
 

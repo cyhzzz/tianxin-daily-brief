@@ -83,7 +83,7 @@ console.log("  统计：卡片 " + cardCount + " / 热点 " + newsCount + " / �
 ["opportunities", "hotspots", "tips"].forEach((id) => {
   if (html.indexOf('id="' + id + '"') < 0) fails.push("缺少 <section id=\"" + id + "\">（短信全文抽取依赖）");
 });
-if (!/assets\/tianxin-logo\.svg/.test(html)) warns.push("未见 logo 引用（应为 ./assets/tianxin-logo.svg）");
+if (!/assets\/tianxin-logo\.svg/.test(html)) warns.push("未见 logo 引用（应为 ../assets/tianxin-logo.svg）");
 
 console.log("");
 if (warns.length) warns.forEach((w) => console.log("  WARN " + w));

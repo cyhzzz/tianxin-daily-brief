@@ -3,11 +3,14 @@
  * pushplus 推送助手（天信每日日报）
  * 用途：把日报推送到 ① 天信负责人手机(中国移动 5G 消息 cmcc) ② 245830958@qq.com(邮件 mail)
  *
- * 推送机制（按 pushplus 官方文档 + 实跑修正）：
- *   - cmcc(5G 消息)：用 template:"txt" 发送**纯文本全文**（编号 + 要点罗列）。
- *     云端 agent 常无仓库写入凭据，看板发布到公网会失败 —— 若短信只带摘要 + 链接，
- *     负责人就什么都看不到。故短信一律发全文文案，不依赖外链；发布成功才附一行链接。
- *   - mail(邮件)：用 template:"html" 发送完整 HTML 看板全文。
+ * 推送机制（详细规范见 references/推送规范.md）：
+ *   - cmcc(5G 消息)：template:"txt"，发**要点压缩版纯文本**（编号 + 要点，默认 ≤420 字）。
+ *     通道经「新消息ClawBot」应用号下发，正文过长会投递异常（实测 1732 字时手机端
+ *     收不到正常正文），故按 商机 > 天台县 > 提示 > 热点 的优先级装预算、逐档降级。
+ *   - mail(邮件)：template:"html"，发完整 HTML 看板（CSS 变量已落地）。
+ *
+ * 不发布到任何公网：GitHub Pages 路线已废弃（云端无 git 写凭据、构建延迟致链接 404），
+ * 短信与邮件都不依赖外链。
  *
  * pushplus 对单次 content 有 2 万字上限：本助手先压缩空白，若仍超限则按 </section>
  * 硬截断并附说明（看板模板已移除「历史参考」列，正常不会触发）。
@@ -18,13 +21,10 @@
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 
 /* ── 完整看板的公网托管（GitHub Pages） ───────────────────────────────
    尽力而为：发布成功后，在短信全文末尾附一行完整看板地址。
    发布失败（非 git 环境 / 无 push 凭据）不影响短信 —— 短信本身即全文文案。 */
-const PAGES_BASE = "https://cyhzzz.github.io/tianxin-daily-brief";
-const REPO_ROOT = path.resolve(__dirname, "..");
 
 const LIMIT = 19500; // 留余量，pushplus 硬上限 20000 字符
 
@@ -270,159 +270,124 @@ function tagTexts(frag) {
 }
 
 /**
- * 构建 5G 消息全文（纯文本 · 编号 + 要点罗列）。
- * 背景：云端 agent 常无仓库写入凭据，看板发布到 Pages 会失败，
- * 若短信只带摘要 + 链接，负责人就什么都看不到。故改为「全文文案」，
- * 不依赖任何外链即可读全；发布成功时才在末尾附一行链接。
+ * 构建 5G 消息正文（纯文本 · 编号 + 要点罗列 · 严格控长）。
+ *
+ * 通道实测：cmcc 走「新消息ClawBot」应用号下发，正文过长会投递异常
+ * （1732 字 / 4047 字节 时手机端收不到正常正文）。故按优先级把要点装入
+ * 固定预算（默认 420 字）：商机 > 天台县 > 提示 > 热点，超预算的档位自动降级，
+ * 完整内容一律走邮件——短信只负责「三秒扫完知道今天有没有要动的事」。
+ *
+ * @param {string} html  看板 HTML
+ * @param {string} dateStr 日期 YYYY-MM-DD
+ * @param {number} [maxChars] 字数预算，默认 420
  */
-function buildSmsText(html, dateStr) {
-  // 剥离注释：模板注释里的骨架示例不能当作真实条目
+function buildSmsText(html, dateStr, maxChars) {
+  const BUDGET = maxChars || 420;
   html = html.replace(/<!--[\s\S]*?-->/g, "");
-  const lines = [];
+  const clip = (s, n) => {
+    s = String(s || "").replace(/\s+/g, " ").trim();
+    return s.length > n ? s.slice(0, n - 1) + "…" : s;
+  };
   const statOf = (label) => {
-    const blocks = matchBlocks(html, "stat");
-    for (const b of blocks) {
+    for (const b of matchBlocks(html, "stat")) {
       if (b.indexOf(label) >= 0) {
         const n = b.match(/<div class="n">([^<]*)<\/div>/);
-        return n ? n[1].trim() : "";
+        if (n) return n[1].trim();
       }
     }
     return "";
   };
-  const tt = statOf("天台县");
-  const hot = statOf("热点");
 
-  // 一、台州本地商机（无 c-title 的卡片是空列占位，跳过）
+  // ── 抽取三板块结构 ──
   const oppSec = html.match(/<section id="opportunities"[^>]*>([\s\S]*?)<\/section>/i);
-  const cards = (oppSec ? matchBlocks(oppSec[1], "card") : []).filter(
-    (c) => /<h4 class="c-title"/i.test(c)
+  const cards = (oppSec ? matchBlocks(oppSec[1], "card") : []).filter((c) =>
+    /<h4 class="c-title"/i.test(c)
   );
-  lines.push("天信每日日报 · " + dateStr);
-  const head = ["商机 " + cards.length + " 条"];
-  if (tt) head.push("天台县 " + tt + " 条");
-  head.push("热点 " + (hot || 0) + " 条");
-  lines.push(head.join("｜"));
-  lines.push("");
-  lines.push("一、台州本地商机（" + cards.length + "）");
-  cards.forEach((c, i) => {
-    const title = textOf((c.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/i) || [])[1] || "");
-    lines.push((i + 1) + ". " + (title || "（无标题）"));
-    const KEEP_META = ["采购人", "预算", "限价", "金额", "服务期", "截止", "开标", "资质", "地区", "发布"];
-    metaPairs(c).forEach(([k, v]) => {
-      if (KEEP_META.some((x) => k.indexOf(x) >= 0)) lines.push("   · " + k + "：" + v);
-    });
-    const tags = tagTexts(c);
-    const matchTag = tags.filter((t) => /可独立投|需联合|暂不匹配/.test(t));
-    const scoreTag = tags.filter((t) => /^评分/.test(t));
-    const tail = matchTag.concat(scoreTag).join(" ｜ ");
-    if (tail) lines.push("   · 判定：" + tail);
-    const follow = textOf((c.match(/<div class="follow"[^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "");
-    if (follow) lines.push("   · 跟进：" + follow.replace(/^跟进[：:]\s*/, ""));
-    const link = (c.match(/<a class="c-link"[^>]*href="([^"]*)"/i) || [])[1];
-    if (link) lines.push("   · 原文：" + link);
-  });
-  if (!cards.length) lines.push("（近 7 天未检索到活单）");
-  lines.push("");
-
-  // 二、行业热点
   const hotSec = html.match(/<section id="hotspots"[^>]*>([\s\S]*?)<\/section>/i);
   const news = hotSec ? matchBlocks(hotSec[1], "news") : [];
-  lines.push("二、行业热点（" + news.length + "）");
-  news.forEach((n, i) => {
-    const t = textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || "");
-    const rel = textOf((n.match(/<p class="n-rel"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || "");
-    lines.push((i + 1) + ". " + (t || "（无标题）"));
-    if (rel) lines.push("   · " + rel.replace(/^相关性[：:]\s*/, "").slice(0, 120));
-  });
-  if (!news.length) lines.push("（今日无直接相关热点）");
-  lines.push("");
-
-  // 三、今日提示
   const tipSec = html.match(/<section id="tips"[^>]*>([\s\S]*?)<\/section>/i);
-  const tips = tipSec ? (tipSec[1].match(/<li[^>]*>[\s\S]*?<\/li>/gi) || []) : [];
-  lines.push("三、今日提示（" + tips.length + "）");
-  tips.forEach((t, i) => {
-    const body = textOf((t.match(/<span class="t-body"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || t);
-    lines.push((i + 1) + ". " + body.slice(0, 200));
-  });
-  if (!tips.length) lines.push("（今日无特别提示）");
+  const tips = tipSec ? tipSec[1].match(/<li[^>]*>[\s\S]*?<\/li>/gi) || [] : [];
 
-  return lines.join("\n");
-}
-
-/**
- * 等 GitHub Pages 构建完成。刚 push 完就发短信，链接会短暂 404（构建约需 30–60 秒），
- * 所以推送前轮询到可访问为止；超时也照发，只是链接可能要稍等。
- */
-function headOk(url) {
-  return new Promise((resolve) => {
-    const req = https.request(
-      url,
-      { method: "GET", headers: { "User-Agent": "tianxin-daily-brief" } },
-      (res) => {
-        res.resume();
-        resolve(res.statusCode === 200);
-      }
+  const opps = cards.map((c) => {
+    const title = textOf((c.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/i) || [])[1] || "");
+    const meta = {};
+    metaPairs(c).forEach(([k, v]) => (meta[k] = v));
+    const when = meta["开标"] || meta["截止"] || "";
+    const tags = tagTexts(c);
+    const mt = tags.find((t) => /可独立投|需联合|暂不匹配/.test(t)) || "";
+    const match = /可独立投/.test(mt)
+      ? "可投"
+      : /需联合/.test(mt)
+      ? "需联合"
+      : /暂不匹配/.test(mt)
+      ? "不匹配"
+      : "";
+    const follow = textOf((c.match(/<div class="follow"[^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "").replace(
+      /^跟进[：:]\s*/,
+      ""
     );
-    req.on("error", () => resolve(false));
-    req.setTimeout(15000, () => {
-      req.destroy();
-      resolve(false);
-    });
-    req.end();
+    return { title, when, match, follow };
   });
-}
+  const hotItems = news.map((n) =>
+    textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || n)
+  );
+  const tipItems = tips.map((t) =>
+    textOf((t.match(/<span class="t-body"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || t)
+  );
+  const nTT = Number(statOf("天台县") || 0);
 
-async function waitForPages(url, maxMs) {
-  const t0 = Date.now();
-  let waited = 0;
-  while (Date.now() - t0 < maxMs) {
-    if (await headOk(url)) return { ok: true, waited };
-    waited = Math.round((Date.now() - t0) / 1000);
-    await new Promise((r) => setTimeout(r, 5000));
-  }
-  return { ok: false, waited };
-}
+  // ── 按档位渲染（参数越宽松，内容越全）──
+  const render = (p) => {
+    const L = [];
+    L.push("天信每日日报 · " + dateStr);
+    L.push("商机 " + opps.length + "｜天台县 " + nTT + "｜热点 " + hotItems.length);
 
-/**
- * 把完整看板发布到 GitHub Pages（仓库 daily/ 目录），返回公网地址。
- * 同时写入 daily/latest.html 作为「最新一期」稳定地址。
- * 若不在 git 仓库 / 推送失败，返回 { url: null }，由调用方降级。
- */
-function publishFullPage(html, date) {
-  const dir = path.join(REPO_ROOT, "daily");
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    // 页面位于 daily/ 下，资源路径 ./assets/ → ../assets/
-    const page = html.replace(/(src=)(["'])\.?\/?assets\//g, "$1$2../assets/");
-    fs.writeFileSync(path.join(dir, date + ".html"), page);
-    fs.writeFileSync(path.join(dir, "latest.html"), page);
-    const git = (cmd) =>
-      execSync(cmd, {
-        cwd: REPO_ROOT,
-        stdio: "pipe",
-        // 云端常无写入凭据：禁用交互提示，避免 git 卡在 "Username for 'https://github.com'"
-        env: Object.assign({}, process.env, {
-          GIT_TERMINAL_PROMPT: "0",
-          GIT_ASKPASS: "echo",
-        }),
-        timeout: 60000,
-      }).toString();
-    if (!fs.existsSync(path.join(REPO_ROOT, ".git"))) {
-      return { url: null, why: "不在 git 仓库，未发布" };
+    L.push("");
+    L.push("【商机】");
+    if (!opps.length) L.push("近 7 天无活单");
+    opps.slice(0, p.oppN).forEach((o, i) => {
+      const tail = [o.when, o.match].filter(Boolean).join("｜");
+      L.push(i + 1 + ". " + clip(o.title, p.titleN) + (tail ? "｜" + tail : ""));
+      if (p.followN > 0 && o.follow) L.push("   " + clip(o.follow, p.followN));
+    });
+    if (opps.length > p.oppN) L.push("（余 " + (opps.length - p.oppN) + " 条见邮件）");
+
+    L.push("");
+    L.push("【天台县】");
+    L.push(nTT ? "本县 " + nTT + " 条，见商机区" : "近 7 天无本县活单");
+
+    if (p.tipN > 0) {
+      L.push("");
+      L.push("【提示】");
+      tipItems.slice(0, p.tipN).forEach((t, i) => L.push(i + 1 + ". " + clip(t, p.tipLen)));
     }
-    git("git add daily");
-    const st = execSync("git status --porcelain -- daily", { cwd: REPO_ROOT, stdio: "pipe" })
-      .toString()
-      .trim();
-    if (st) {
-      git('git commit -m "日报看板 ' + date + '"');
-      git("git push origin master");
+    if (p.hotN > 0 && hotItems.length) {
+      L.push("");
+      L.push("【热点】");
+      hotItems.slice(0, p.hotN).forEach((t, i) => L.push(i + 1 + ". " + clip(t, p.hotLen)));
     }
-    return { url: PAGES_BASE + "/daily/" + date + ".html", why: "" };
-  } catch (e) {
-    return { url: null, why: "发布失败: " + String(e.message || e).split("\n")[0] };
+
+    L.push("");
+    L.push("完整版见邮件");
+    return L.join("\n").trim();
+  };
+
+  // 由全到简逐档降级，取第一个装得进预算的档
+  const plans = [
+    { oppN: 3, titleN: 40, followN: 60, tipN: 4, tipLen: 56, hotN: 5, hotLen: 34 },
+    { oppN: 3, titleN: 36, followN: 0, tipN: 4, tipLen: 50, hotN: 4, hotLen: 30 },
+    { oppN: 2, titleN: 32, followN: 0, tipN: 3, tipLen: 44, hotN: 3, hotLen: 26 },
+    { oppN: 2, titleN: 28, followN: 0, tipN: 2, tipLen: 38, hotN: 2, hotLen: 22 },
+    { oppN: 1, titleN: 26, followN: 0, tipN: 2, tipLen: 32, hotN: 0, hotLen: 0 },
+    { oppN: 1, titleN: 22, followN: 0, tipN: 0, tipLen: 0, hotN: 0, hotLen: 0 },
+  ];
+  for (const p of plans) {
+    const t = render(p);
+    if (t.length <= BUDGET) return t;
   }
+  // 极端兜底：最后一档仍超预算则硬截
+  const last = render(plans[plans.length - 1]);
+  return last.slice(0, BUDGET - 1) + "…";
 }
 
 function prepare(raw) {
@@ -509,21 +474,10 @@ function resolveHtml(arg) {
         .slice(0, 3000);
   }
 
-  // ② 完整看板发布到公网（GitHub Pages）：尽力而为，失败不影响短信可读性
-  const pub = publishFullPage(raw, date);
-  console.log(
-    "完整看板公网地址:",
-    pub.url || "（未发布：" + pub.why + "；短信为全文文案，不依赖链接）"
-  );
-  if (pub.url) {
-    const w = await waitForPages(pub.url, 120000); // 等 Pages 构建，避免链接 404
-    console.log(
-      w.ok
-        ? "Pages 已就绪（等待 " + w.waited + " 秒）"
-        : "Pages 尚未就绪（已等 " + w.waited + " 秒，链接可能要稍等）"
-    );
-    smsBody += "\n\n完整看板：" + pub.url;
-  }
+  // ② 不发布到任何公网。
+  //    GitHub Pages 路线已废弃：云端执行环境无 git 写凭据（push 必然失败），
+  //    且 Pages 构建需数十秒到数分钟，短信发出时链接大概率 404。
+  //    因此短信自带全文文案、邮件自带完整看板，两者都不依赖任何外链。
 
   // ③ 5G 消息：template:"txt" 发全文文案（pushplus 对 txt 正文会尽量完整展示）
   console.log(
