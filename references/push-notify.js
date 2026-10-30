@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 /**
  * pushplus 推送助手（天信每日日报）
- * 用途：把日报推送到 ① 天信负责人手机(中国移动 5G 消息 cmcc) ② 245830958@qq.com(邮件 mail)
+ * 用途：把日报推到三个终端
+ *   ① 天信负责人手机（中国移动 5G 消息 cmcc）
+ *   ② 微信「pushplus推送加」服务号（wechat）
+ *   ③ 245830958@qq.com（邮件 mail）
  *
  * 推送机制（详细规范见 references/推送规范.md）：
  *   - cmcc(5G 消息)：template:"txt"，发**要点压缩版纯文本**（编号 + 要点，默认 ≤420 字）。
  *     通道经「新消息ClawBot」应用号下发，正文过长会投递异常（实测 1732 字时手机端
  *     收不到正常正文），故按 商机 > 天台县 > 提示 > 热点 的优先级装预算、逐档降级。
+ *   - wechat(服务号)：template:"html"，发**移动端 HTML 看板**（全内联样式、单列重排），
+ *     微信里点开即看，不必进邮箱。详见 buildWechatBoard。
  *   - mail(邮件)：template:"html"，发完整 HTML 看板（CSS 变量已落地）。
  *
  * 不发布到任何公网：GitHub Pages 路线已废弃（云端无 git 写凭据、构建延迟致链接 404），
- * 短信与邮件都不依赖外链。
+ * 三个通道都不依赖自建外链。
  *
  * pushplus 对单次 content 有 2 万字上限：本助手先压缩空白，若仍超限则按 </section>
  * 硬截断并附说明（看板模板已移除「历史参考」列，正常不会触发）。
@@ -400,6 +405,327 @@ function buildSmsText(html, dateStr, maxChars) {
   return last.slice(0, BUDGET - 1) + "…";
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   服务号（微信）HTML 看板  buildWechatBoard()
+   ──────────────────────────────────────────────────────────────────────────
+   通道 wechat + template:"html"：pushplus 把 content 原样注入详情页
+   https://www.pushplus.plus/shortMessage/{id} 的 #messageContent 容器。
+   这个注入点有三条硬约束，决定了**不能直接复用桌面看板**：
+
+     ① 注入点在 <body> 内的 div —— 若内容带 <style>，其中 body / * / :root
+        规则会外溢，改写 pushplus 页面自身的标题栏、页脚与字号。故本函数
+        **全量内联样式、零 <style>**（顺带也免疫"客户端剥 style"）。
+     ② 容器 style 带 white-space: pre-line —— 内容里每个换行都会渲染成空行。
+        故最终输出前压掉所有换行。
+     ③ 视口宽 ~375px —— 桌面看板靠 @media 才降列，内联后 @media 失效、会挤成
+        四列。故按单列重排；速览与字段表用 <table> 保证对齐。
+
+   内容与看板**同源抽取**（不另行组织信息、不新增判断），仅在超 2 万字上限时
+   按「跟进 → 相关性 → 热点条数」逐档收缩，并在末尾注明余量去向。
+   ══════════════════════════════════════════════════════════════════════════ */
+const WX_LIMIT = 19000;
+const LOGO_URL = ASSET_BASE + "tianxin-logo.svg";
+const LOGO_FALLBACK =
+  "https://cdn.jsdelivr.net/gh/cyhzzz/tianxin-daily-brief@master/assets/tianxin-logo.svg";
+
+/** HTML 实体转义（textOf 已解码，回写前要重新编码） */
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** 片段 → 安全文本，保留 <a>（套内联样式）与 <b>/<strong>（"相关性""跟进"等小标题） */
+function richText(frag) {
+  const keep = [];
+  const body = String(frag || "")
+    .replace(
+      /<a\b[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      function (_m, href, label) {
+        keep.push(
+          '<a href="' +
+            esc(href) +
+            '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE">' +
+            esc(textOf(label)) +
+            "</a>"
+        );
+        return "\u0001" + (keep.length - 1) + "\u0001";
+      }
+    )
+    .replace(/<(b|strong)\b[^>]*>([\s\S]*?)<\/\1>/gi, function (_m, _t, inner) {
+      keep.push('<b style="color:#00338D;font-weight:600">' + esc(textOf(inner)) + "</b>");
+      return "\u0001" + (keep.length - 1) + "\u0001";
+    });
+  return esc(textOf(body)).replace(/\u0001(\d+)\u0001/g, function (_m, i) {
+    return keep[Number(i)];
+  });
+}
+
+/** 标签 → 内联 span（沿用看板配色语义：紧急红 / 分类navy / 其余灰） */
+function wxTag(txt, kind) {
+  const c = kind === "urgent" ? "#da1e28" : kind === "navy" ? "#00338D" : "#6f6f6f";
+  const b = kind === "urgent" ? "#F0B6B9" : kind === "navy" ? "#A9BDD8" : "#D8D8D8";
+  return (
+    '<span style="display:inline-block;font-size:11px;line-height:1.7;padding:0 6px;margin:0 4px 4px 0;border:1px solid ' +
+    b +
+    ";color:" +
+    c +
+    ';white-space:nowrap">' +
+    esc(txt) +
+    "</span>"
+  );
+}
+
+/** 取片段里的 <span class="tag*">，带语义分类 */
+function tagObjs(frag) {
+  const out = [];
+  const re = /<span class="([^"]*tag[^"]*)"[^>]*>([\s\S]*?)<\/span>/gi;
+  let m;
+  while ((m = re.exec(frag))) {
+    const cls = m[1];
+    const t = textOf(m[2]);
+    if (!t) continue;
+    const kind = /tag-urgent/.test(cls) ? "urgent" : /tag-(blue|navy)/.test(cls) ? "navy" : "gray";
+    out.push(wxTag(t, kind));
+  }
+  return out.join("");
+}
+
+/**
+ * @param {string} html 看板 HTML（**必须先 absAssets**，否则 data URI 撑爆上限）
+ * @param {string} dateStr YYYY-MM-DD
+ * @param {{followLen?:number, relLen?:number, hotN?:number}} [plan] 收缩档位
+ *        followLen/relLen：0=整段省略；>=9999 视为不截断。hotN：0=整个热点区省略
+ */
+function buildWechatBoard(html, dateStr, plan) {
+  const P = Object.assign({ followLen: 9999, relLen: 9999, hotN: 99 }, plan || {});
+  html = String(html || "").replace(/<!--[\s\S]*?-->/g, "");
+  const clip = (s, n) => {
+    s = String(s || "");
+    return n > 0 && n < 9999 && s.length > n ? s.slice(0, n - 1) + "…" : s;
+  };
+
+  // ── 抽取（结构与 buildSmsText 共用同一套选择器）──
+  const stats = matchBlocks(html, "stat")
+    .slice(0, 3)
+    .map((b) => ({
+      n: ((b.match(/<div class="n">([^<]*)<\/div>/) || [])[1] || "").trim(),
+      l: textOf((b.match(/<div class="l">([\s\S]*?)<\/div>/) || [])[1] || ""),
+    }));
+  const dateLine =
+    textOf((html.match(/<p class="date"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || "") || dateStr;
+
+  const ttBand = matchBlocks(html, "tiantai-band")[0] || "";
+  const ttText = richText((ttBand.match(/<p[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || "");
+
+  const oppSec = (html.match(/<section id="opportunities"[^>]*>([\s\S]*?)<\/section>/i) || [])[1] || "";
+  let cols = matchBlocks(oppSec, "col")
+    .map((c) => ({
+      head: textOf((c.match(/<div class="col-head"[^>]*>([\s\S]*?)<\/div>/i) || [])[1] || ""),
+      cards: matchBlocks(c, "card").filter((x) => /<h4 class="c-title"/i.test(x)),
+    }))
+    .filter((c) => c.cards.length);
+  if (!cols.length) {
+    const cs = matchBlocks(oppSec, "card").filter((x) => /<h4 class="c-title"/i.test(x));
+    if (cs.length) cols = [{ head: "", cards: cs }];
+  }
+
+  const hotSec = (html.match(/<section id="hotspots"[^>]*>([\s\S]*?)<\/section>/i) || [])[1] || "";
+  const hotNote = clip(
+    textOf((hotSec.match(/<p class="section-note"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
+    230
+  );
+  const news = matchBlocks(hotSec, "news").map((n) => ({
+    title: textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || ""),
+    tags: tagObjs(n),
+    rel: richText((n.match(/<p class="n-rel"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
+  }));
+
+  const tipSec = (html.match(/<section id="tips"[^>]*>([\s\S]*?)<\/section>/i) || [])[1] || "";
+  const tips = (tipSec.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || []).map((li) =>
+    richText((li.match(/<span class="t-body"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || li)
+  );
+
+  // ── 渲染 ──
+  const T = [];
+  T.push('<div style="margin:0;padding:0;background:#ffffff;max-width:680px">');
+
+  // 页眉：红章压在 navy 上会发闷 → 白色底衬（内联，推送端剥 style 也照样生效）
+  T.push('<div style="background:#00338D;padding:16px">');
+  T.push('<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse"><tr>');
+  T.push('<td width="60" valign="middle" style="width:60px;padding:0">');
+  T.push(
+    '<img src="' + LOGO_URL + '" alt="天台天信会计师事务所" width="56" height="56" style="display:block;width:56px;height:56px;background:#ffffff;padding:5px;box-sizing:border-box;border:0" onerror="this.onerror=null;this.src=\'' +
+      LOGO_FALLBACK +
+      '\'" />'
+  );
+  T.push("</td>");
+  T.push('<td valign="middle" style="padding:0 0 0 12px">');
+  T.push('<div style="font-size:9px;letter-spacing:1.5px;color:#8FB0DC;line-height:1.4">TIANXIN CPA · DAILY INTELLIGENCE</div>');
+  T.push('<div style="font-size:17px;font-weight:600;color:#ffffff;line-height:1.5;margin-top:2px">天台天信会计师事务所</div>');
+  T.push('<div style="font-size:11px;color:#C9D6EA;line-height:1.5;margin-top:1px">每日行业与商机情报看板 · 县城所赋能与外联获客</div>');
+  T.push("</td></tr></table></div>");
+
+  T.push('<div style="background:#F7F7F7;padding:9px 16px;border-bottom:1px solid #D8D8D8;font-size:12px;color:#525252">' + esc(dateLine) + "</div>");
+
+  // 速览：三个数由看板数据抽取，非硬编码
+  if (stats.length) {
+    T.push('<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;table-layout:fixed">');
+    T.push("<tr>");
+    const n = stats.length;
+    stats.forEach((s, i) => {
+      const gold = i === 1; // 天台县（本所驻地）用金，单屏金色用量压在 2 次内
+      T.push(
+        '<td style="padding:12px 6px;text-align:center;vertical-align:top;' +
+          (i < n - 1 ? "border-right:1px solid #E4E4E4;" : "") +
+          '">' +
+          '<div style="font-size:22px;font-weight:600;line-height:1.2;color:' +
+          (gold ? "#B8860B" : "#00338D") +
+          '">' +
+          esc(s.n) +
+          "</div>" +
+          '<div style="font-size:11px;color:#6f6f6f;line-height:1.5;margin-top:2px">' +
+          esc(s.l) +
+          "</div></td>"
+      );
+    });
+    T.push("</tr></table>");
+  }
+
+  const secHead = (no, title, note) =>
+    '<div style="padding:20px 16px 0">' +
+    '<div style="font-size:10px;letter-spacing:1.5px;color:#8a8a8a;line-height:1.4">SECTION ' +
+    no +
+    "</div>" +
+    '<div style="font-size:16px;font-weight:600;color:#00338D;line-height:1.5;margin-top:2px">' +
+    title +
+    "</div>" +
+    '<div style="height:1px;background:#D8D8D8;margin:9px 0 0"></div>' +
+    (note
+      ? '<div style="font-size:11.5px;color:#6f6f6f;line-height:1.65;margin-top:8px">' + note + "</div>"
+      : "") +
+    "</div>";
+
+  // ── Section 01 商机 ──
+  T.push(secHead("01", "台州本地商机", "近 7 天发布；NEW=近 2 天发布，急=≤7 天截止。已定标 / 已过截止的历史单不进看板。仅作情报提示，对外动作须经负责人复核。"));
+  T.push('<div style="padding:0 16px">');
+  if (ttText) {
+    T.push('<div style="border:1px solid #D8D8D8;background:#FAFAFA;padding:12px;margin-top:12px">');
+    T.push('<div style="font-size:13px;font-weight:600;color:#1a1a1a;line-height:1.5"><span style="color:#B8860B;font-weight:700">■</span> 天台县专项（本所驻地 · 最高优先）</div>');
+    T.push('<div style="font-size:12.5px;color:#393939;line-height:1.7;margin-top:6px">' + ttText + "</div>");
+    T.push("</div>");
+  }
+  if (!cols.length) {
+    T.push('<div style="border:1px solid #E4E4E4;padding:12px;margin-top:12px;font-size:13px;color:#6f6f6f">近 7 天未检索到进行中的相关采购。</div>');
+  }
+  cols.forEach((col) => {
+    if (col.head) T.push('<div style="font-size:12px;color:#525252;line-height:1.6;margin:16px 0 8px">' + esc(col.head) + "</div>");
+    col.cards.forEach((c) => {
+      const cut = c.indexOf('<dl class="meta"');
+      const title = textOf((c.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/i) || [])[1] || "");
+      const topTags = tagObjs(cut > 0 ? c.slice(0, cut) : "");
+      const meta = metaPairs(c)
+        .map(
+          ([k, v]) =>
+            '<tr><td style="width:64px;padding:3px 8px 3px 0;color:#6f6f6f;font-size:12px;line-height:1.65;vertical-align:top;white-space:nowrap">' +
+            esc(k) +
+            '</td><td style="padding:3px 0;color:#262626;font-size:12.5px;line-height:1.65;vertical-align:top">' +
+            esc(v) +
+            "</td></tr>"
+        )
+        .join("");
+      const bottomTags = tagObjs(cut > 0 ? c.slice(cut) : c);
+      const follow = textOf((c.match(/<div class="follow"[^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "").replace(
+        /^跟进[：:]\s*/,
+        ""
+      );
+      const href = (c.match(/<a class="c-link"[^>]*href="([^"]*)"/i) || [])[1] || "";
+      T.push('<div style="border:1px solid #D8D8D8;background:#ffffff;padding:12px;margin-bottom:10px">');
+      T.push('<div style="font-size:15px;font-weight:600;color:#1a1a1a;line-height:1.5">' + esc(title) + "</div>");
+      if (topTags) T.push('<div style="margin-top:8px">' + topTags + "</div>");
+      if (meta) T.push('<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-top:8px">' + meta + "</table>");
+      if (bottomTags) T.push('<div style="margin-top:8px">' + bottomTags + "</div>");
+      if (P.followLen && follow)
+        T.push(
+          '<div style="margin-top:10px;background:#F4F4F4;padding:8px 10px;font-size:12.5px;color:#393939;line-height:1.7">' +
+            "<b style=\"color:#00338D\">跟进：</b>" +
+            esc(clip(follow, P.followLen)) +
+            "</div>"
+        );
+      if (href)
+        T.push(
+          '<div style="margin-top:10px"><a href="' +
+            esc(href) +
+            '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE;font-size:12.5px">查看原文 ↗</a></div>'
+        );
+      T.push("</div>");
+    });
+  });
+  T.push("</div>");
+
+  // ── Section 02 热点 ──
+  const hotShown = Math.min(P.hotN, news.length);
+  if (hotShown > 0) {
+    T.push(secHead("02", "行业热点", esc(hotNote)));
+    T.push('<div style="padding:0 16px">');
+    news.slice(0, hotShown).forEach((n, i) => {
+      T.push('<div style="padding:12px 0' + (i ? ";border-top:1px solid #E4E4E4" : ";border-top:1px solid #E4E4E4;margin-top:10px") + '">');
+      T.push('<div style="font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.55">' + esc(n.title) + "</div>");
+      if (n.tags) T.push('<div style="margin-top:6px">' + n.tags + "</div>");
+      if (P.relLen && n.rel)
+        T.push('<div style="margin-top:6px;font-size:12.5px;color:#393939;line-height:1.75">' + clip(n.rel, P.relLen) + "</div>");
+      T.push("</div>");
+    });
+    if (hotShown < news.length)
+      T.push('<div style="padding:10px 0;font-size:12px;color:#8a8a8a">余 ' + (news.length - hotShown) + " 条热点见邮件完整看板。</div>");
+    T.push("</div>");
+  }
+
+  // ── Section 03 提示 ──
+  if (tips.length) {
+    T.push(secHead("03", "今日提示", ""));
+    T.push('<div style="padding:0 16px">');
+    tips.forEach((t, i) => {
+      T.push('<div style="padding:10px 0' + (i ? ";border-top:1px solid #EFEFEF" : ";border-top:1px solid #E4E4E4;margin-top:10px") + '">');
+      T.push('<div style="font-size:12.5px;color:#262626;line-height:1.75"><span style="color:#00338D;font-weight:600;margin-right:6px">' + (i + 1) + "</span>" + t + "</div>");
+      T.push("</div>");
+    });
+    T.push("</div>");
+  }
+
+  // 页脚
+  T.push('<div style="background:#F7F7F7;border-top:1px solid #D8D8D8;padding:14px 16px;margin-top:20px">');
+  T.push('<div style="font-size:11px;color:#6f6f6f;line-height:1.75">数据来源：审计热点站 · 浙江政府采购网 · 中国政府采购网 · 台州浙里招标 · 台州中介服务网 · 台州阳光采购 · 天台县政府门户公共资源交易 · 天台阳光招采 · 浙江省公共资源交易平台；抓取于 ' + esc(dateStr) + "。商机仅作情报提示，金额、截止时间与资质门槛以公告原文为准，不得据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</div>");
+  T.push('<div style="font-size:10px;color:#8a8a8a;line-height:1.7;margin-top:8px">天台天信会计师事务所 · TIANXIN CPA · 由「天信每日日报」自动生成</div>');
+  T.push("</div>");
+
+  T.push("</div>");
+  return T.join("").replace(/\n/g, ""); // 容器 pre-line：绝不能留换行
+}
+
+/**
+ * 生成服务号看板并按 2 万字上限逐档收缩。
+ * @returns {{html:string, level:number, len:number}}
+ */
+function wechatBoard(html, dateStr) {
+  const plans = [
+    { followLen: 9999, relLen: 9999, hotN: 99 }, // 0 全量
+    { followLen: 9999, relLen: 140, hotN: 7 },
+    { followLen: 90, relLen: 100, hotN: 6 },
+    { followLen: 0, relLen: 80, hotN: 5 },
+    { followLen: 0, relLen: 0, hotN: 4 },
+    { followLen: 0, relLen: 0, hotN: 2 },
+  ];
+  let last = "";
+  for (let i = 0; i < plans.length; i++) {
+    last = buildWechatBoard(html, dateStr, plans[i]);
+    if (last.length <= WX_LIMIT) return { html: last, level: i, len: last.length };
+  }
+  return { html: last.slice(0, WX_LIMIT - 60) + "…", level: plans.length, len: WX_LIMIT };
+}
+
 function prepare(raw) {
   let html = minify(raw);
   if (html.length <= LIMIT) return { html, trimmed: false };
@@ -446,7 +772,7 @@ function resolveHtml(arg) {
   return arg;
 }
 
-(async () => {
+async function main() {
   const token = getToken();
   if (!token) {
     console.log("SKIP: 未找到 PUSHPLUS_TOKEN（环境变量）或 push-secrets.json，跳过推送。");
@@ -489,8 +815,8 @@ function resolveHtml(arg) {
 
   // ② 不发布到任何公网。
   //    GitHub Pages 路线已废弃：云端执行环境无 git 写凭据（push 必然失败），
-  //    且 Pages 构建需数十秒到数分钟，短信发出时链接大概率 404。
-  //    因此短信自带全文文案、邮件自带完整看板，两者都不依赖任何外链。
+  //    且 Pages 构建需数十秒到数分钟，链接发出时大概率 404。
+  //    三个通道各自自带内容，都不依赖自建外链。
 
   // ③ 5G 消息：template:"txt" 发全文文案（pushplus 对 txt 正文会尽量完整展示）
   console.log(
@@ -502,7 +828,22 @@ function resolveHtml(arg) {
   console.log("--- 短信正文 ---\n" + smsBody + "\n----------------");
   const cmcc = await send(token, "cmcc", titleArg, smsBody, "txt");
   console.log(cmcc);
-  const lean = resolveStyleVars(html); // 邮件版：保留 <style>，但 CSS 变量全部落地（基于已 minify 的 html，避免超 2 万字）
+
+  // ④ 服务号：template:"html" 发移动端看板（全内联、单列、零 <style>）
+  const wx = wechatBoard(html, date);
+  console.log(
+    "服务号版式:",
+    "移动端单列 · 全内联",
+    "｜字符数:", wx.len,
+    "｜收缩档:", wx.level + "/" + (wx.level === 0 ? "全量" : "已收缩"),
+    "｜style 残留:", wx.html.indexOf("<style") >= 0 ? "有（异常）" : "无",
+    "｜换行:", /\n/.test(wx.html) ? "有（异常）" : "无"
+  );
+  const wechat = await send(token, "wechat", titleArg, wx.html, "html");
+  console.log(wechat);
+
+  // ⑤ 邮件：完整看板（桌面版式，CSS 变量落地）
+  const lean = resolveStyleVars(html); // 保留 <style>，但 CSS 变量全部落地（基于已 minify 的 html，避免超 2 万字）
   const mailBody = inlined && inlined.length <= LIMIT ? inlined : lean;
   console.log(
     "邮件版式:",
@@ -511,4 +852,19 @@ function resolveHtml(arg) {
   );
   const mail = await send(token, "mail", titleArg, mailBody, "html");
   console.log(mail);
-})();
+}
+
+module.exports = {
+  buildSmsText,
+  buildWechatBoard,
+  wechatBoard,
+  inlineCss,
+  resolveStyleVars,
+  prepare,
+  absAssets,
+  minify,
+  textOf,
+  matchBlocks,
+};
+
+if (require.main === module) main();

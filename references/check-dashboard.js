@@ -89,6 +89,26 @@ else if (/assets\/tianxin-logo\.svg/.test(html))
   warns.push("logo 用相对路径，单独打开 html 会 404；建议跑 node references/inline-logo.js 内联");
 else warns.push("未见 logo");
 
+// 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）
+//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
+try {
+  const pn = require("./push-notify.js");
+  const built = pn.prepare(pn.absAssets(rawHtml));
+  const wx = pn.wechatBoard(built.html, TODAY);
+  const problems = [];
+  if (wx.len > 19000) problems.push("超 2 万字上限（" + wx.len + "）");
+  if (wx.level > 0) warns.push("服务号看板已收缩到第 " + wx.level + " 档（条目多、篇幅紧）");
+  if (/<style/i.test(wx.html)) problems.push("残留 <style>（会污染 pushplus 页面）");
+  if (/\n/.test(wx.html)) problems.push("残留换行（容器 pre-line 会渲染成空行）");
+  if (wx.html.indexOf("SECTION 01") < 0) problems.push("缺商机板块");
+  if (wx.html.indexOf("SECTION 03") < 0) problems.push("缺提示板块");
+  if (wx.html.indexOf("tianxin-logo.svg") < 0) problems.push("缺 logo");
+  if (problems.length) fails.push("服务号看板：" + problems.join("；"));
+  else ok("服务号看板可生成（" + wx.len + " 字符，全内联无换行）");
+} catch (e) {
+  warns.push("服务号看板自检跳过：" + e.message);
+}
+
 console.log("");
 if (warns.length) warns.forEach((w) => console.log("  WARN " + w));
 if (fails.length) {
