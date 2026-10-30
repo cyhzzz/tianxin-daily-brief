@@ -365,7 +365,7 @@ function buildSmsText(html, dateStr, maxChars) {
       L.push(i + 1 + ". " + clip(o.title, p.titleN) + (tail ? "｜" + tail : ""));
       if (p.followN > 0 && o.follow) L.push("   " + clip(o.follow, p.followN));
     });
-    if (opps.length > p.oppN) L.push("（余 " + (opps.length - p.oppN) + " 条见邮件）");
+    if (opps.length > p.oppN) L.push("（余 " + (opps.length - p.oppN) + " 条见服务号）");
 
     L.push("");
     L.push("【天台县】");
@@ -383,7 +383,7 @@ function buildSmsText(html, dateStr, maxChars) {
     }
 
     L.push("");
-    L.push("完整版见邮件");
+    L.push("完整版见服务号/邮件");
     return L.join("\n").trim();
   };
 
