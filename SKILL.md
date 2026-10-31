@@ -112,7 +112,7 @@ version: 1.0.0
 3. 文件中**不含 `历史参考`**（已移除该区）。
 4. 速览区三个数字 == 实际卡片数 / 天台县条目数 / 热点条目数（数字由数据算出，不硬编码）。
 5. logo 已内联为 data URI（未内联会 WARN 提示去跑 `inline-logo.js`）。
-6. **短信字数 ≤ 420**（跑 `push-notify.js` 时会在控制台回显，超出会自动降档，留意别把关键条目挤掉）。
+6. **短信字数 ≤ 480**（跑 `push-notify.js` 时会在控制台回显，超出会自动降档，留意别把关键条目挤掉）。
 
 **视觉规范**：严格套用天信设计规范令牌（navy `#00338D` / 亮蓝 `#0F62FE` / 金 `#B8860B` / 0 圆角 / Noto Sans SC / tabular-nums / 单屏金≤2 / 禁 emoji·紫·渐变 hero）。模板 CSS **不要改**，只填内容。
 - **logo 与视觉依据（重要）**：看板页眉/页脚使用**官网原版红色印章 logo**——`assets/tianxin-logo.svg`，系 `天信本身/tianxin-cpa-website-gh-pages/assets/logo.svg` 的**逐字节复制**（MD5 `204782fa7e60739961528848a6499108`）。
@@ -129,8 +129,13 @@ version: 1.0.0
 node references/push-notify.js "天信每日日报 · {日期}" "daily/{日期}.html"
 ```
 
-- 三个通道：**5G 消息**（cmcc，要点压缩纯文本，默认 ≤420 字）→ **微信服务号**（wechat，移动端 HTML 看板，全内联单列）→ **邮件**（mail，完整看板）。
+- 三通道：**5G 消息**（cmcc，要点压缩纯文本，默认 ≤480 字）→ **微信服务号**（wechat，移动端 HTML 看板，全内联单列）→ **邮件**（mail，完整看板）。
 - 服务号版式由 `buildWechatBoard()` 单独生成（宿主页注入点容不得 `<style>` 与换行），**不要**把桌面看板直接发给 wechat。
+- ⚠️ **板块一结构契约（踩过坑）**：板块一内容靠 CSS 类名抽取，改版式必须保持类名不变——
+  - 天台县用 `.tiantai-band > .tt-lede`（结论句）+ 若干 `.tt-item`（每条含 `.tt-kicker` / `.tt-h` / `.tt-p` / `.tt-a`）+ `.tt-foot`；
+  - 商机卡片用 `.col > .col-head` + `.card`（内含 `.c-title` / `.c-tags` / `.meta` / `.follow` / `.c-link`）。
+  - 历史故障：天台县只写成一个 `<p>` 时抽取正常，改成条目化后若不保留 `.tt-item`，服务号版**静默只剩结论句**、条目全丢（2026-10-31 修复：`buildWechatBoard` / `buildSmsText` 均已按 `.tt-item` 逐条解析）。
+  - 推送后**必须**打开 `shortMessage/{id}` 逐条核对：科技局/采购意向等本县条目是否都在。
 - 推送后打开返回的 `https://www.pushplus.plus/shortMessage/{id}` 核对页眉/速览/条目数是否与看板一致。
 - **不发布到任何公网**：GitHub Pages 路线已废弃（云端无 git 写凭据、构建延迟导致链接 404），三个通道都不依赖自建外链。
 - 失败不阻断日报产出，降级为「对话内完整呈现 + 记录返回 code/msg」。

@@ -297,7 +297,7 @@ function tagTexts(frag) {
  * @param {number} [maxChars] 字数预算，默认 420
  */
 function buildSmsText(html, dateStr, maxChars) {
-  const BUDGET = maxChars || 420;
+  const BUDGET = maxChars || 480;
   html = html.replace(/<!--[\s\S]*?-->/g, "");
   const clip = (s, n) => {
     s = String(s || "").replace(/\s+/g, " ").trim();
@@ -350,6 +350,14 @@ function buildSmsText(html, dateStr, maxChars) {
     textOf((t.match(/<span class="t-body"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || t)
   );
   const nTT = Number(statOf("天台县") || 0);
+  // 天台县条目（.tt-item）：短信里也要带上实质内容，而不只是一个计数。
+  const ttBandS = matchBlocks(html, "tiantai-band")[0] || "";
+  const ttBrief = matchBlocks(ttBandS, "tt-item")
+    .map((it) => ({
+      kick: tagTexts(it).slice(-1)[0] || "",
+      title: textOf((it.match(/<h4 class="tt-h"[^>]*>([\s\S]*?)<\/h4>/i) || [])[1] || ""),
+    }))
+    .filter((x) => x.title);
 
   // ── 按档位渲染（参数越宽松，内容越全）──
   const render = (p) => {
@@ -369,7 +377,14 @@ function buildSmsText(html, dateStr, maxChars) {
 
     L.push("");
     L.push("【天台县】");
-    L.push(nTT ? "本县 " + nTT + " 条，见商机区" : "近 7 天无本县活单");
+    if (p.ttN > 0 && ttBrief.length) {
+      ttBrief.slice(0, p.ttN).forEach((t) => {
+        L.push("· " + (t.kick ? clip(t.kick, 12) + "  " : "") + clip(t.title, p.ttLen));
+      });
+      if (nTT) L.push("（另有 " + nTT + " 条活单，见商机区）");
+    } else {
+      L.push(nTT ? "本县 " + nTT + " 条，见商机区" : "近 7 天无本县活单");
+    }
 
     if (p.tipN > 0) {
       L.push("");
@@ -389,12 +404,12 @@ function buildSmsText(html, dateStr, maxChars) {
 
   // 由全到简逐档降级，取第一个装得进预算的档
   const plans = [
-    { oppN: 3, titleN: 40, followN: 60, tipN: 4, tipLen: 56, hotN: 5, hotLen: 34 },
-    { oppN: 3, titleN: 36, followN: 0, tipN: 4, tipLen: 50, hotN: 4, hotLen: 30 },
-    { oppN: 2, titleN: 32, followN: 0, tipN: 3, tipLen: 44, hotN: 3, hotLen: 26 },
-    { oppN: 2, titleN: 28, followN: 0, tipN: 2, tipLen: 38, hotN: 2, hotLen: 22 },
-    { oppN: 1, titleN: 26, followN: 0, tipN: 2, tipLen: 32, hotN: 0, hotLen: 0 },
-    { oppN: 1, titleN: 22, followN: 0, tipN: 0, tipLen: 0, hotN: 0, hotLen: 0 },
+    { oppN: 3, titleN: 40, followN: 60, tipN: 4, tipLen: 56, hotN: 5, hotLen: 34, ttN: 2, ttLen: 46 },
+    { oppN: 3, titleN: 36, followN: 0, tipN: 4, tipLen: 50, hotN: 4, hotLen: 30, ttN: 2, ttLen: 40 },
+    { oppN: 2, titleN: 32, followN: 0, tipN: 3, tipLen: 44, hotN: 3, hotLen: 26, ttN: 2, ttLen: 40 },
+    { oppN: 2, titleN: 28, followN: 0, tipN: 2, tipLen: 38, hotN: 2, hotLen: 22, ttN: 1, ttLen: 34 },
+    { oppN: 1, titleN: 26, followN: 0, tipN: 2, tipLen: 32, hotN: 0, hotLen: 0, ttN: 1, ttLen: 30 },
+    { oppN: 1, titleN: 22, followN: 0, tipN: 0, tipLen: 0, hotN: 0, hotLen: 0, ttN: 1, ttLen: 24 },
   ];
   for (const p of plans) {
     const t = render(p);
@@ -519,6 +534,21 @@ function buildWechatBoard(html, dateStr, plan) {
 
   const ttBand = matchBlocks(html, "tiantai-band")[0] || "";
   const ttText = richText((ttBand.match(/<p[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || "");
+  // 天台县条目化结构（.tt-item）：只取首个 <p> 会丢掉全部实质条目，故逐条解析。
+  const ttItems = matchBlocks(ttBand, "tt-item")
+    .map((it) => {
+      const kick = [tagTexts(it).join(" · "), textOf((it.match(/<span class="d"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || "")]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        kick,
+        title: textOf((it.match(/<h4 class="tt-h"[^>]*>([\s\S]*?)<\/h4>/i) || [])[1] || ""),
+        body: richText((it.match(/<p class="tt-p"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
+        href: (it.match(/<a class="tt-a"[^>]*href="([^"]*)"/i) || [])[1] || "",
+      };
+    })
+    .filter((x) => x.title);
+  const ttFoot = richText((ttBand.match(/<p class="tt-foot"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || "");
 
   const oppSec = (html.match(/<section id="opportunities"[^>]*>([\s\S]*?)<\/section>/i) || [])[1] || "";
   let cols = matchBlocks(oppSec, "col")
@@ -611,10 +641,38 @@ function buildWechatBoard(html, dateStr, plan) {
   // ── Section 01 商机 ──
   T.push(secHead("01", "台州本地商机", "近 7 天发布；NEW=近 2 天发布，急=≤7 天截止。已定标 / 已过截止的历史单不进看板。仅作情报提示，对外动作须经负责人复核。"));
   T.push('<div style="padding:0 16px">');
-  if (ttText) {
+  if (ttText || ttItems.length) {
     T.push('<div style="border:1px solid #D8D8D8;background:#FAFAFA;padding:12px;margin-top:12px">');
     T.push('<div style="font-size:13px;font-weight:600;color:#1a1a1a;line-height:1.5"><span style="color:#B8860B;font-weight:700">■</span> 天台县专项（本所驻地 · 最高优先）</div>');
-    T.push('<div style="font-size:12.5px;color:#393939;line-height:1.7;margin-top:6px">' + ttText + "</div>");
+    if (ttText)
+      T.push('<div style="font-size:12.5px;color:#393939;line-height:1.7;margin-top:6px">' + ttText + "</div>");
+    ttItems.forEach((it) => {
+      T.push(
+        '<div style="border:1px solid #E4E4E4;border-left:3px solid #B8860B;background:#ffffff;padding:11px 12px;margin-top:9px">'
+      );
+      if (it.kick)
+        T.push('<div style="font-size:10.5px;color:#6f6f6f;line-height:1.5">' + esc(it.kick) + "</div>");
+      T.push(
+        '<div style="font-size:13px;font-weight:600;color:#1a1a1a;line-height:1.55;margin-top:4px">' +
+          esc(it.title) +
+          "</div>"
+      );
+      if (it.body)
+        T.push('<div style="font-size:12px;color:#393939;line-height:1.7;margin-top:5px">' + it.body + "</div>");
+      if (it.href)
+        T.push(
+          '<div style="margin-top:6px"><a href="' +
+            esc(it.href) +
+            '" style="font-size:11.5px;color:#0F62FE;text-decoration:none">查看原文 ↗</a></div>'
+        );
+      T.push("</div>");
+    });
+    if (ttFoot)
+      T.push(
+        '<div style="font-size:11px;color:#6f6f6f;line-height:1.65;margin-top:9px;border-top:1px dashed #D8D8D8;padding-top:8px">' +
+          ttFoot +
+          "</div>"
+      );
     T.push("</div>");
   }
   if (!cols.length) {
