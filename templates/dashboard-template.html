@@ -98,10 +98,6 @@
     .overview .stat .l { font-size: var(--text-xs); color: var(--muted); letter-spacing: 0.02em; }
     .overview .stat.gold .n { color: var(--gold); }
 
-    /* 今日摘要（短信正文取此区块，页面上也作为速览展示） */
-    .sms-summary { background: var(--surface); border: 1px solid var(--border); padding: var(--space-3) var(--space-4); margin: var(--space-4) 0 0; font-size: var(--text-sm); line-height: 1.75; }
-    .sms-summary p { margin: 0; }
-
     /* ── 区块 ── */
     section { padding: var(--space-12) 0; }
     section + section { border-top: 1px solid var(--border); }
@@ -116,11 +112,23 @@
     .tiantai-band .tt-title::before { content: ""; width: 10px; height: 10px; background: var(--accent-deep); display: inline-block; }
     .tiantai-band p { margin: 0; color: var(--fg-2); font-size: var(--text-sm); }
 
+    /* 天台县专项 · 条目式（直接说内容，每条带原文超链；不用「入口/抓取方式」表格） */
+    .tt-lede { margin: 0 0 var(--space-4); color: var(--fg); font-size: var(--text-sm); }
+    .tt-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .tt-item { background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--accent-deep); padding: var(--space-4); }
+    .tt-kicker { margin: 0 0 var(--space-2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tt-kicker .d { font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+    .tt-item .tt-h { font-size: var(--text-base); font-weight: var(--weight-semibold); line-height: 1.45; margin: 0 0 var(--space-2); color: var(--fg); }
+    .tt-item .tt-p { font-size: var(--text-sm); color: var(--fg-2); margin: 0 0 var(--space-2); line-height: 1.65; }
+    .tt-item .tt-p b { color: var(--fg); font-weight: var(--weight-medium); }
+    .tt-item .tt-a { display: inline-block; font-size: var(--text-sm); font-weight: var(--weight-medium); }
+    .tt-foot { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-4) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--border); line-height: 1.8; }
+    .tt-foot b { color: var(--fg); font-weight: var(--weight-medium); }
+
     /* ── 看板（四列） ── */
     .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); align-items: start; }
     .col-head { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: 0.02em; padding-bottom: var(--space-2); border-bottom: 2px solid var(--accent-deep); margin-bottom: var(--space-3); display: flex; justify-content: space-between; align-items: baseline; }
     .col-head .cnt { font-size: var(--text-xs); color: var(--muted); font-weight: var(--weight-regular); }
-    .col.tiantai .col-head { border-bottom-color: var(--accent-deep); }
     .col-stack { display: flex; flex-direction: column; gap: var(--space-3); }
 
     /* ── 卡片 ── */

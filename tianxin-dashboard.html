@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>天信每日情报看板 · 2026-10-31</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── 天信设计规范令牌（tianxin-cpa / tokens.css，逐字引入） ── */
+    :root {
+      --bg: #ffffff;
+      --surface: #f4f4f4;
+      --fg: #161616;
+      --fg-2: #525252;
+      --muted: #8a8a8a;
+      --border: #e0e0e0;
+      --border-soft: #e8e8e8;
+      --accent: #0f62fe;
+      --accent-deep: #00338d;
+      --accent-sky: #4589ff;
+      --gold: #b8860b;
+      --danger: #da1e28;
+      --font-display: "Noto Serif SC", "Source Han Serif SC", Georgia, "Times New Roman", STSong, SimSun, serif;
+      --font-body: "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      --text-xs: 12px;
+      --text-sm: 14px;
+      --text-base: 15px;
+      --text-lg: 22px;
+      --text-xl: 32px;
+      --leading-body: 1.50;
+      --tracking-display: -0.03em;
+      --tracking-eyebrow: 0.08em;
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --space-1: 8px; --space-2: 12px; --space-3: 16px; --space-4: 24px;
+      --space-5: 32px; --space-6: 40px; --space-8: 48px; --space-10: 64px; --space-12: 80px;
+      --container-max: 1280px;
+      --container-gutter: 24px;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: var(--leading-body);
+      color: var(--fg);
+      background: var(--bg);
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: var(--container-max); margin: 0 auto; padding: 0 var(--container-gutter); }
+
+    /* ── 页眉（navy 旗舰带） ── */
+    .site-header { background: var(--accent-deep); color: #fff; padding: var(--space-6) 0; }
+    .site-header .eyebrow {
+      font-size: var(--text-xs); letter-spacing: var(--tracking-eyebrow);
+      color: var(--accent-sky); text-transform: uppercase; margin: 0 0 var(--space-1);
+    }
+    .site-header .wordmark {
+      font-family: var(--font-display); font-weight: var(--weight-semibold);
+      font-size: 30px; letter-spacing: var(--tracking-display); line-height: 1.1; margin: 0;
+    }
+    .site-header .sub { font-size: var(--text-sm); color: rgba(255,255,255,0.78); margin-top: var(--space-1); }
+    .site-header .date { font-size: var(--text-sm); color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; }
+    /* 页眉布局（参考官网：navy 旗舰带 + 印章 logo + 字标） */
+    .header-inner { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: var(--space-3); }
+    /* 红色印章 logo 置于浅色底衬上（0 圆角），避免在 navy/深色底上发闷；尺寸与底色走内联样式，邮件与托管页同样生效 */
+    .brand-logo { flex: 0 0 auto; display: block; }
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-text .wordmark { font-size: 28px; }
+    .brand-text .sub { margin-top: 2px; }
+
+    /* ── 速览条 ── */
+    .overview { border-bottom: 1px solid var(--border); background: var(--surface); }
+    .overview .container { display: flex; flex-wrap: wrap; gap: var(--space-6); padding-top: var(--space-4); padding-bottom: var(--space-4); }
+    .overview .stat .n { font-size: var(--text-xl); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; color: var(--accent-deep); }
+    .overview .stat .l { font-size: var(--text-xs); color: var(--muted); letter-spacing: 0.02em; }
+    .overview .stat.gold .n { color: var(--gold); }
+
+    /* ── 区块 ── */
+    section { padding: var(--space-12) 0; }
+    section + section { border-top: 1px solid var(--border); }
+    .section-divider { width: 48px; height: 3px; background: var(--gold); margin-bottom: var(--space-3); }
+    .section-title { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-display); margin: 0 0 var(--space-1); }
+    .section-note { font-size: var(--text-sm); color: var(--fg-2); margin: 0 0 var(--space-6); }
+    .eyebrow-zh { font-size: var(--text-xs); letter-spacing: var(--tracking-eyebrow); color: var(--muted); text-transform: uppercase; margin: 0 0 var(--space-2); }
+
+    /* ── 天台县专项带 ── */
+    .tiantai-band { background: var(--surface); border: 1px solid var(--border); padding: var(--space-5); margin-bottom: var(--space-6); }
+    .tiantai-band .tt-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+    .tiantai-band .tt-title::before { content: ""; width: 10px; height: 10px; background: var(--accent-deep); display: inline-block; }
+    .tiantai-band p { margin: 0; color: var(--fg-2); font-size: var(--text-sm); }
+
+    /* 天台县专项 · 条目式（直接说内容，每条带原文超链；不用「入口/抓取方式」表格） */
+    .tt-lede { margin: 0 0 var(--space-4); color: var(--fg); font-size: var(--text-sm); }
+    .tt-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .tt-item { background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--accent-deep); padding: var(--space-4); }
+    .tt-kicker { margin: 0 0 var(--space-2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tt-kicker .d { font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+    .tt-item .tt-h { font-size: var(--text-base); font-weight: var(--weight-semibold); line-height: 1.45; margin: 0 0 var(--space-2); color: var(--fg); }
+    .tt-item .tt-p { font-size: var(--text-sm); color: var(--fg-2); margin: 0 0 var(--space-2); line-height: 1.65; }
+    .tt-item .tt-p b { color: var(--fg); font-weight: var(--weight-medium); }
+    .tt-item .tt-a { display: inline-block; font-size: var(--text-sm); font-weight: var(--weight-medium); }
+    .tt-foot { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-4) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--border); line-height: 1.8; }
+    .tt-foot b { color: var(--fg); font-weight: var(--weight-medium); }
+
+    /* ── 看板（四列） ── */
+    .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); align-items: start; }
+    .col-head { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: 0.02em; padding-bottom: var(--space-2); border-bottom: 2px solid var(--accent-deep); margin-bottom: var(--space-3); display: flex; justify-content: space-between; align-items: baseline; }
+    .col-head .cnt { font-size: var(--text-xs); color: var(--muted); font-weight: var(--weight-regular); }
+    .col-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+
+    /* ── 卡片 ── */
+    .card { border: 1px solid var(--border); background: #fff; padding: var(--space-4); border-radius: 0; transition: background var(--motion-base) var(--ease-standard); }
+    .card:hover { background: var(--border-soft); }
+    .card .c-top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+    .card .c-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); line-height: 1.25; margin: 0; }
+    .card .c-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--space-2) 0; }
+    .tag { display: inline-block; padding: 4px 12px; font-size: var(--text-xs); font-weight: var(--weight-regular); letter-spacing: 0.02em; border-radius: 0; white-space: nowrap; }
+    .tag-navy { color: var(--accent-deep); background: #edf5ff; }
+    .tag-blue { color: var(--accent); background: #edf5ff; }
+    .tag-gray { color: var(--fg-2); background: var(--surface); }
+    .tag-gold { color: var(--gold); background: #fef7e0; }
+    .tag-new { color: #fff; background: var(--accent); }
+    .tag-urgent { color: #fff; background: var(--danger); }
+    .meta { display: grid; grid-template-columns: 78px 1fr; gap: 4px 12px; font-size: var(--text-sm); margin: var(--space-2) 0; }
+    .meta dt { color: var(--muted); }
+    .meta dd { margin: 0; color: var(--fg); }
+    .meta .num { font-variant-numeric: tabular-nums; }
+    .follow { background: var(--surface); padding: var(--space-2); font-size: var(--text-sm); color: var(--fg-2); border-radius: 0; }
+    .follow b { color: var(--fg); font-weight: var(--weight-medium); }
+    .c-link { display: inline-block; margin-top: var(--space-2); font-size: var(--text-sm); }
+
+    /* ── 行业热点列表 ── */
+    .news-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .news { border: 1px solid var(--border); padding: var(--space-4); border-radius: 0; transition: background var(--motion-base) var(--ease-standard); }
+    .news:hover { background: var(--border-soft); }
+    .news .n-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); line-height: 1.25; }
+    .news .n-rel { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-2) 0 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
+    .news .n-rel b { color: var(--accent-deep); font-weight: var(--weight-medium); }
+
+    /* ── 今日提示 ── */
+    .tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+    .tips li { display: flex; gap: var(--space-3); align-items: flex-start; border: 1px solid var(--border); padding: var(--space-3) var(--space-4); }
+    .tips .idx { flex: 0 0 28px; height: 28px; background: var(--accent-deep); color: #fff; font-weight: var(--weight-semibold); display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+    .tips .t-body { font-size: var(--text-sm); }
+
+    /* ── 页脚（深色） ── */
+    .site-footer { background: #161616; color: rgba(255,255,255,0.82); padding: var(--space-8) 0; font-size: var(--text-xs); line-height: 1.6; }
+    .site-footer a { color: var(--accent-sky); }
+    .site-footer .fb-brand { margin-bottom: var(--space-3); }
+    .site-footer .fb-logo { display: block; margin-bottom: var(--space-2); }
+    .site-footer .fb-title { font-family: var(--font-display); color: #fff; font-size: var(--text-lg); margin: 0 0 var(--space-2); }
+
+    @media (max-width: 1024px) { .board { grid-template-columns: repeat(2, 1fr); } .news-list { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .board { grid-template-columns: 1fr; } .site-header .wordmark { font-size: 24px; } }
+  </style>
+</head>
+<body>
+  <!-- ══════════ 页眉（固定框架，不改） ══════════ -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <!-- 天信红色印章 logo：官网原版 assets/logo.svg，逐字节复制引用，未做任何修改。
+             路径用 ./assets/ —— 模板与产出都位于仓库根下一层（templates/、daily/），两处均正确。
+             若把 html 挪到仓库根目录，须改回 ./assets/，否则 logo 加载不出来。 -->
+        <img class="brand-logo" src="./assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:80px;height:80px;box-sizing:border-box;padding:8px;background:#ffffff;object-fit:contain" />
+        <div class="brand-text">
+          <p class="eyebrow">TIANXIN CPA · DAILY INTELLIGENCE</p>
+          <h1 class="wordmark">天台天信会计师事务所</h1>
+          <p class="sub">每日行业与商机情报看板 · 县城所赋能与外联获客</p>
+        </div>
+      </div>
+      <p class="date">2026-10-31（周六）· 数据抓取于当日</p>
+    </div>
+  </header>
+
+  <!-- ══════════ 速览（数字必须由当日数据实时算出，严禁沿用模板数字） ══════════ -->
+  <div class="overview">
+    <div class="container">
+      <div class="stat"><div class="n">1</div><div class="l">进行中·可跟进活单</div></div>
+      <div class="stat gold"><div class="n">0</div><div class="l">天台县专项（本县）</div></div>
+      <div class="stat"><div class="n">10</div><div class="l">行业热点（相关）</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════ 板块一：台州本地商机（重点关注天台县） ══════════ -->
+  <section id="opportunities">
+    <div class="container">
+      <p class="eyebrow-zh">Section 01</p>
+      <div class="section-divider"></div>
+      <h2 class="section-title">台州本地商机</h2>
+      <p class="section-note">重点关注天台县（本所驻地）。商机取近 7 天发布，近 2 天发布标 NEW、≤7 天截止标 急；已定标 / 已过投标截止的历史单不进看板。仅作情报提示，对外动作须经负责人（及事务所）人工复核。</p>
+
+      <!-- 天台县专项：有单列条目；无单则写明"已核查哪几个入口、未检索到"，不得留空 -->
+      <div class="tiantai-band">
+        <h3 class="tt-title">天台县专项（本所驻地 · 最高优先）</h3>
+        <p><p class="tt-lede">近 7 天（10-25 ~ 10-31）本县<b>无</b>审计 / 会计类新发活单。以下 2 条为本县最新实质动态，附原文直达链接。</p>
+<div class="tt-list">
+  <div class="tt-item">
+    <p class="tt-kicker"><span class="tag tag-new">NEW 10-30</span><span class="tag tag-navy">本所已承接</span><span class="d">天台县科学技术局</span></p>
+    <h4 class="tt-h">县科技局研发攻关资金验收评审结果公示：明确委托天信做研发费用专项财务审计</h4>
+    <p class="tt-p"><b>属已承接执行，非待投标商机</b>，金额原文未披露；科技、财政、纪检共同参与验收。意义：县政府部门对天信研发费专项审计资质的一手认可，可作本地业绩背书；因含财政、纪检参与，底稿须按最高留痕标准归档。</p>
+    <a class="tt-a" href="https://www.zjtt.gov.cn/col/col1229799612/art/2026/art_e9f7f0643ebc8046223de9de39d22b8a.html" target="_blank" rel="noopener">查看公示原文 ↗</a>
+  </div>
+  <div class="tt-item">
+    <p class="tt-kicker"><span class="tag tag-new">NEW 10-26</span><span class="tag tag-gray">前瞻线索</span><span class="d">天台县采购意向公开</span></p>
+    <h4 class="tt-h">天台县采购意向（2026.10）更新：平桥镇居家养老托管运营服务，预算 139.00 万元，预计 12 月采购</h4>
+    <p class="tt-p">非天信业务类，但证实<b>本县前瞻窗口本月已更新</b>（意向通常提前 1-2 个月披露）。另命中街头镇、龙溪乡意向各 1 条，详情页未披露品目与金额，列入下期人工复核。</p>
+    <a class="tt-a" href="http://www.zjtt.gov.cn/col/col1229811359/" target="_blank" rel="noopener">查看采购意向栏目 ↗</a>
+  </div>
+</div>
+<p class="tt-foot">本县审计类商机仍以<b>框架协议库 TTCG-2025-KJ002（天信已在库）</b>为主入口，辅以政府门户公共资源交易栏目与阳光招采平台，不存在"对接某部门即可获单"的通道。常态监测：<a href="https://ztb.zjtt.gov.cn/" target="_blank" rel="noopener">县交易中心</a> · <a href="https://tiantai.hibidding.com/" target="_blank" rel="noopener">阳光招采</a> · <a href="https://zjfw.zwfwb.zjtz.gov.cn/" target="_blank" rel="noopener">市中介服务网</a></p></p>
+      </div>
+
+      <!-- 看板：列数随当日实际条目增减（1–3 列）；没有卡片的列整列删除，不要用"暂无"占位卡
+           卡片骨架（每条商机一张，字段缺失写"未披露"）：
+           <div class="col">
+             <div class="col-head">列标题 <span class="cnt">N</span></div>
+             <div class="col-stack">
+               <div class="card">
+                 <div class="c-top"><h4 class="c-title">项目名称</h4></div>
+                 <div class="c-tags"><span class="tag tag-blue">国企采购</span><span class="tag tag-urgent">急 · 11-05 开标</span><span class="tag tag-gray">评分 高</span></div>
+                 <dl class="meta">
+                   <dt>采购人</dt><dd>…</dd>
+                   <dt>预算·限价</dt><dd class="num">…</dd>
+                   <dt>开标</dt><dd class="num">…</dd>
+                   <dt>资质门槛</dt><dd>…</dd>
+                   <dt>地区</dt><dd>…</dd>
+                   <dt>发布</dt><dd class="num">…</dd>
+                 </dl>
+                 <div class="c-tags"><span class="tag tag-navy">可独立投 / 需联合·下级</span></div>
+                 <div class="follow"><b>跟进：</b>谁对接 + 下一步 + 时间点，一句</div>
+                 <a class="c-link" href="原文链接" target="_blank" rel="noopener">查看原文 ↗</a>
+               </div>
+             </div>
+           </div> -->
+      <div class="board">
+        <div class="col">
+          <div class="col-head">进行中 · 高优先 <span class="cnt">1</span></div>
+          <div class="col-stack">
+            <div class="card">
+              <div class="c-top"><h4 class="c-title">台州市交通投资集团 2026-2028 年度财务报表审计 + 季度审阅</h4></div>
+              <div class="c-tags">
+                <span class="tag tag-blue">国企采购</span>
+                <span class="tag tag-urgent">急 · 11-05 09:00 开标</span>
+                <span class="tag tag-gray">评分 高</span>
+              </div>
+              <dl class="meta">
+                <dt>采购人</dt><dd>台州市交通投资集团（椒江区 · 市本级）；代理 台州交投工程咨询</dd>
+                <dt>预算·限价</dt><dd class="num">136 万元/年（审计 116 + 审阅 20），总价包干含税</dd>
+                <dt>服务期</dt><dd>2026-2028；新增出报告主体 5000 元/年/家</dd>
+                <dt>开标</dt><dd class="num">2026-11-05 09:00（远程不见面）</dd>
+                <dt>资质门槛</dt><dd>证券服务业务备案 + 执业许可；项目负责人 CPA 满 10 年；不接受联合体；保证金 2 万</dd>
+                <dt>地区</dt><dd>椒江区（市本级）</dd>
+                <dt>发布</dt><dd class="num">2026-10-15</dd>
+              </dl>
+              <div class="c-tags"><span class="tag tag-navy">🔶 需联合 / 下级</span></div>
+              <div class="follow"><b>跟进：</b>倒计时 5 天，天信无证券资格且不接受联合体，不可独立投。① 11-05 旁听开标，记录中标所与报价，建台州国企年审价格台账；② 以该集团子公司 / 下级审计为切入口（招标人 王亚妮 0576-88518096）问分包；③ 2028 年轮换窗口入年度提醒。</div>
+              <a class="c-link" href="https://ggzy.tzztb.zjtz.gov.cn/jyxx/002007/002007001/20261015/351f68d8-5cbf-41d1-8342-222de3869ea0.html" target="_blank" rel="noopener">查看原文 ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 板块二：行业热点 ══════════ -->
+  <section id="hotspots">
+    <div class="container">
+      <p class="eyebrow-zh">Section 02</p>
+      <div class="section-divider"></div>
+      <h2 class="section-title">行业热点</h2>
+      <p class="section-note">来源：审计热点站 hot.auditdog.cn，抓取于 2026-10-31 08:30；该站最新一期为 10-30（2 条已收录置前），10-31 条目尚未聚合。以下为与本所相关的 10 条，按日期倒序。</p>
+      <!-- 热点条目骨架：<div class="news"><h3 class="n-title">标题</h3>
+           <div class="c-tags"><span class="tag tag-navy">来源</span><span class="tag tag-gray">评分 …</span></div>
+           <p class="n-rel"><b>相关性：</b>对天信一句话</p></div> -->
+      <div class="news-list">
+        <div class="news top">
+          <h3 class="n-title">财政部解读新《注册会计师法》的监督制度安排</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-30 · 评分 8181 · 中国注册会计师协会</span></div>
+          <p>监督评价局梳理监督检查、监管谈话、警示函、责令限期整改、审计档案境内存放等安排；该法 2026-06-26 通过修改决定，<b>2027-01-01 施行</b>，为 1993 年以来第二次修改，配套办法将制修订。</p>
+          <p class="n-rel"><b>对天信相关性：</b>本期最高优先级。县城所同在监督范围内，距施行仅 2 个月，建议本月专题学习并自查三项（监督配合、执业许可条件、档案境内存放）。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">证监会山东局对北京兴荣华所及于晓平、郭灿堂出具警示函</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-30 · 评分 5757 · 证监会山东局</span></div>
+          <p>依《证券法》出具警示函，列名对象同时含机构与两名签字 CPA。</p>
+          <p class="n-rel"><b>对天信相关性：</b>印证"罚机构同时罚到人"的双罚常态，签字 CPA 个人责任不可回避。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">清越科技 3.7 亿赔付基金由谁承担，立信此前收取 1663 万审计费</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-29 · 评分 7070 · 审见微光</span></div>
+          <p>2022 年上半年虚增利润占当期 131.74%，上市当年年报实际利润为负，签字 CPA 仍出具标准无保留意见；9 月已退市，赔付分摊比例未披露。</p>
+          <p class="n-rel"><b>对天信相关性：</b>中介赔付责任的同业参照，提示"上市前审计 + 持续亏损"类业务风险敞口。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">深圳证监局处罚中审华：没收收入并处五倍罚款，暂停证券业务半年</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-29 · 评分 7272 · 破碎审计</span></div>
+          <p>罚没合计 1300 余万元，签字 CPA 最高罚 130 万元并处 5 年市场禁入；底稿已记录现金流为负、利润异常，舞弊风险评估表却认定无舞弊风险。</p>
+          <p class="n-rel"><b>对天信相关性：</b>舞弊评估"走过场"零容忍；AI 可标记异常但担责仍是 CPA，建议作所内培训案例。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">浙江证监局随机抽取中汇 2 个 2025 年年报审计项目现场检查</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-29 · 评分 5656 · 中国注册会计师俱乐部</span></div>
+          <p>涉星帅尔（审计费 90 万、合作 9 年）与新三板永盛高纤（25 万、合作 4 年），均出具标准无保留意见；依证监发〔2015〕80 号随机抽查方案。</p>
+          <p class="n-rel"><b>对天信相关性：</b>浙江属地监管动态，"随机抽查 + 长任期项目"为省内偏好，长期客户须做轮换与独立性复核。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">富恒新材拟将 2026 年度审计机构由中审众环变更为深圳旭泰</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-29 · 评分 5858 · 巨潮</span></div>
+          <p>前任所上年出具保留意见，前后任所对变更无异议；2026 年收费未定，2025 年 75 万元，待股东会审议。</p>
+          <p class="n-rel"><b>对天信相关性：</b>提示承接"前任出具非标意见"客户时的前后任沟通与底稿衔接义务。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">AICPA 就 SOC 2 信任服务准则修订草案征求意见（新增 AI 治理）</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-29 · 评分 6363 · Journal of Accountancy</span></div>
+          <p>拟改善 SOC 2 报告清晰度，新增 AI 治理、模型监控、提示词操纵、数据投毒、输出透明度等关注点，意见截至 2027-01-15。</p>
+          <p class="n-rel"><b>对天信相关性：</b>AI 治理正被纳入鉴证准则关注点；天信推进 AI 时须保留人工判断链路。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">审计任务自动化后，初级审计人员从哪里积累实务经验</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-29 · 评分 6868 · CPA Practice Advisor</span></div>
+          <p>建议评估 AI 用例时同步设计初级员工"复核 AI 输出、处理异常、作出判断"的成长路径；毕马威今夏以判断力训练替代部分常规账务训练，培训近 1000 名实习生。</p>
+          <p class="n-rel"><b>对天信相关性：</b>自动化须配套初级人员职业判断培养机制，避免技能断层。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">审计之家整理 93 项竣工决算审计常见问题及官方定性依据</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-28 · 评分 6161 · 审计之家</span></div>
+          <p>按立项可研、勘察设计、招标、施工监理、决算编制审核五组展开，每项给查找路径与定性依据，集中于财建〔2016〕503/504 号、《政府投资条例》《招标投标法》及企业会计准则。</p>
+          <p class="n-rel"><b>对天信相关性：</b>竣工决算是天信既有业务，建议存档作为县投资项目决算业务检查清单。</p>
+        </div>
+        <div class="news">
+          <h3 class="n-title">山东注协公开谴责企衡（济南）所及夏某聚、张某静</h3>
+          <div class="c-tags"><span class="tag tag-gray">10-27 · 评分 9393 · 王耀武会计小文艺</span></div>
+          <p>该所仅 3 名 CPA，2026 年 7-8 月报备 7,755 份报告且均由二人签字，抽 20 份底稿发现未履行必要程序、未获取充分适当证据。</p>
+          <p class="n-rel"><b>对天信相关性：</b>县城 / 小所底稿质量红线案例；建议建"报告份数—签字 CPA 数—底稿覆盖"自查机制。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 板块三：今日提示 ══════════ -->
+  <section id="tips">
+    <div class="container">
+      <p class="eyebrow-zh">Section 03</p>
+      <div class="section-divider"></div>
+      <h2 class="section-title">今日提示</h2>
+      <p class="section-note">最值得负责人关注或可采取行动的事项。</p>
+      <!-- 提示条目骨架：<li><span class="idx">1</span><span class="t-body">正文</span></li> -->
+      <ul class="tips">
+        <li class="pin"><span class="idx">1</span><span class="t-body"><b>固定核查项（每日必跑）：天台县框架协议新一轮征集 —— 未命中。</b>命中的仍为 2025-2026 年度（TTCG-2025-KJ002）入围结果公告，新一轮未启动，天信县本级资格仍有效。建议本月向县交易中心（赵先生 0576-83930301）确认库内状态，并把"2026 年底至 2027 年初换库窗口"列入年度提醒：错过征集 = 县本级会计审计单归零。</span></li>
+        <li><span class="idx">2</span><span class="t-body"><b>交投集团 136 万元/年审计 11-05 09:00 开标（倒计时 5 天）。</b>天信无证券资格且不接受联合体，无法独立投。本周完成：① 11-05 旁听开标，记中标所与报价，建价格台账；② 以子公司 / 下级审计为切入口问分包；③ 2028 年轮换窗口入台账。</span></li>
+        <li><span class="idx">3</span><span class="t-body"><b>新《注册会计师法》2027-01-01 施行，财政部已发监督安排解读。</b>今日头条（评分 8181，本期最高）：覆盖监督检查、监管谈话、警示函、限期整改与档案境内存放，配套办法将制修订。距施行 2 个月，建议本月专题学习并自查三项。遇准则疑难可<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">智能问答查文件</a>。</span></li>
+        <li><span class="idx">4</span><span class="t-body"><b>天台县两件事：一手业绩背书 + 前瞻窗口已开。</b>① 县科技局 10-30 公示确认委托天信做研发费专项财务审计，建议留存公示作业绩证明，并据此向县科技局 / 经信局争取 2027 年度同类委托；底稿按最高留痕标准归档。② 采购意向(2026.10) 已 10-26 发布，说明栏目进入更新节奏；街头镇、龙溪乡两条原文未披露，建议人工登录确认，勿据标题臆断。</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ══════════ 页脚（固定框架） ══════════ -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="fb-brand">
+        <img class="fb-logo" src="./assets/tianxin-logo.svg" alt="天台天信会计师事务所" style="width:60px;height:60px;box-sizing:border-box;padding:6px;background:#ffffff;object-fit:contain" />
+        <p class="fb-title">天台天信会计师事务所 · TIANXIN CPA</p>
+      </div>
+      <p>本看板由「天信每日日报」Skill 自动生成，数据来源于公开信源（审计热点站、浙江政府采购网、中国政府采购网、台州市公共资源交易浙里招标、台州市中介服务网、台州市阳光采购平台、天台县政府门户公共资源交易栏目与采购意向公开、天台县阳光招采平台、浙江省公共资源交易服务平台），抓取于 2026-10-31。商机仅作情报提示，所有金额、截止时间与资质门槛以公告原文为准，严禁据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</p>
+      <p>参考知识库：<a href="https://ima.qq.com/wiki/?shareId=a47a4337b49dfdb1feba7a678e04603d780a02048a7130a429e60731978e4fcd" target="_blank" rel="noopener">信永中和智能专业知识库（公开，可智能问答/查文件）</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
