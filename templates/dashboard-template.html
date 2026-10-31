@@ -98,6 +98,10 @@
     .overview .stat .l { font-size: var(--text-xs); color: var(--muted); letter-spacing: 0.02em; }
     .overview .stat.gold .n { color: var(--gold); }
 
+    /* 今日摘要（短信正文取此区块，页面上也作为速览展示） */
+    .sms-summary { background: var(--surface); border: 1px solid var(--border); padding: var(--space-3) var(--space-4); margin: var(--space-4) 0 0; font-size: var(--text-sm); line-height: 1.75; }
+    .sms-summary p { margin: 0; }
+
     /* ── 区块 ── */
     section { padding: var(--space-12) 0; }
     section + section { border-top: 1px solid var(--border); }
@@ -112,23 +116,11 @@
     .tiantai-band .tt-title::before { content: ""; width: 10px; height: 10px; background: var(--accent-deep); display: inline-block; }
     .tiantai-band p { margin: 0; color: var(--fg-2); font-size: var(--text-sm); }
 
-    /* 天台县专项 · 条目式（直接说内容，每条带原文超链；不用「入口/抓取方式」表格） */
-    .tt-lede { margin: 0 0 var(--space-4); color: var(--fg); font-size: var(--text-sm); }
-    .tt-list { display: flex; flex-direction: column; gap: var(--space-3); }
-    .tt-item { background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--accent-deep); padding: var(--space-4); }
-    .tt-kicker { margin: 0 0 var(--space-2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .tt-kicker .d { font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
-    .tt-item .tt-h { font-size: var(--text-base); font-weight: var(--weight-semibold); line-height: 1.45; margin: 0 0 var(--space-2); color: var(--fg); }
-    .tt-item .tt-p { font-size: var(--text-sm); color: var(--fg-2); margin: 0 0 var(--space-2); line-height: 1.65; }
-    .tt-item .tt-p b { color: var(--fg); font-weight: var(--weight-medium); }
-    .tt-item .tt-a { display: inline-block; font-size: var(--text-sm); font-weight: var(--weight-medium); }
-    .tt-foot { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-4) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--border); line-height: 1.8; }
-    .tt-foot b { color: var(--fg); font-weight: var(--weight-medium); }
-
     /* ── 看板（四列） ── */
     .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); align-items: start; }
     .col-head { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: 0.02em; padding-bottom: var(--space-2); border-bottom: 2px solid var(--accent-deep); margin-bottom: var(--space-3); display: flex; justify-content: space-between; align-items: baseline; }
     .col-head .cnt { font-size: var(--text-xs); color: var(--muted); font-weight: var(--weight-regular); }
+    .col.tiantai .col-head { border-bottom-color: var(--accent-deep); }
     .col-stack { display: flex; flex-direction: column; gap: var(--space-3); }
 
     /* ── 卡片 ── */
@@ -157,8 +149,8 @@
     .news { border: 1px solid var(--border); padding: var(--space-4); border-radius: 0; transition: background var(--motion-base) var(--ease-standard); }
     .news:hover { background: var(--border-soft); }
     .news .n-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); line-height: 1.25; }
-    .news .n-rel { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-2) 0 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
-    .news .n-rel b { color: var(--accent-deep); font-weight: var(--weight-medium); }
+    .news .n-body { font-size: var(--text-sm); color: var(--fg-2); margin: var(--space-2) 0 0; border-top: 1px solid var(--border); padding-top: var(--space-2); line-height: 1.6; }
+    .news .n-body b { color: var(--accent-deep); font-weight: var(--weight-medium); }
 
     /* ── 今日提示 ── */
     .tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
@@ -254,9 +246,13 @@
       <div class="section-divider"></div>
       <h2 class="section-title">行业热点</h2>
       <p class="section-note">{{HOTSPOT_NOTE}}</p>
-      <!-- 热点条目骨架：<div class="news"><h3 class="n-title">标题</h3>
-           <div class="c-tags"><span class="tag tag-navy">来源</span><span class="tag tag-gray">评分 …</span></div>
-           <p class="n-rel"><b>相关性：</b>对天信一句话</p></div> -->
+      <!-- 热点条目骨架（已固化，禁止增删字段）：每条 = 消息本身 + 底部超链。
+           严禁在消息块内塞 信源 / 评分 / 抓取方式 等过程性标签，严禁把消息做成表格或 dl 罗列信源。
+           <div class="news">
+             <h3 class="n-title">标题</h3>
+             <p class="n-body">正文（可含对天信相关性，一句话）</p>
+             <a class="c-link" href="原文链接" target="_blank" rel="noopener">查看原文 ↗</a>
+           </div> -->
       <div class="news-list">
         {{HOTSPOT_ITEMS}}
       </div>

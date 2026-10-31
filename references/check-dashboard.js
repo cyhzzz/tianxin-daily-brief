@@ -89,6 +89,20 @@ else if (/assets\/tianxin-logo\.svg/.test(html))
   warns.push("logo 用相对路径，单独打开 html 会 404；建议跑 node references/inline-logo.js 内联");
 else warns.push("未见 logo");
 
+// 5b) 行业热点消息结构固化（模板骨架为唯一权威：标题+正文+底部超链，禁信源/评分/抓取方式/表格）
+const newsBlocks = hotSec.match(/<div class="news">[\s\S]*?<\/div>/g) || [];
+let hotStructOk = true;
+newsBlocks.forEach((blk, i) => {
+  const links = (blk.match(/<a class="c-link"/g) || []).length;
+  if (links !== 1) { fails.push("热点第 " + (i + 1) + " 条消息应有且仅有 1 个底部超链，实际 " + links); hotStructOk = false; }
+  if (/<table[\s>]|<dl[\s>]/.test(blk)) { fails.push("热点第 " + (i + 1) + " 条消息出现表格/定义列表（禁止）"); hotStructOk = false; }
+});
+if (/tag-navy">来源|tag-gray">评分|n-rel/.test(hotSec)) { fails.push("板块二残留 来源/评分 标签或旧 n-rel 类（应改为 n-body + c-link）"); hotStructOk = false; }
+const hotNote = (hotSec.match(/<p class="section-note">([\s\S]*?)<\/p>/) || [])[1] || "";
+if (/信源|抓取方式/.test(hotNote)) { fails.push("板块二说明出现 信源/抓取方式（禁止，应只写一句话简短说明）"); hotStructOk = false; }
+if (newsBlocks.length && hotStructOk) ok("行业热点消息结构固化（" + newsBlocks.length + " 条均 标题+正文+底部超链，无信源/评分/抓取方式/表格）");
+else if (newsBlocks.length) warns.push("行业热点消息结构未完全固化（见上方失败项），推送前须修复");
+
 // 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）
 //    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
 try {
