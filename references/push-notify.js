@@ -573,7 +573,9 @@ function buildWechatBoard(html, dateStr, plan) {
   const news = matchBlocks(hotSec, "news").map((n) => ({
     title: textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || ""),
     tags: tagObjs(n),
-    rel: richText((n.match(/<p class="n-rel"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
+    // 2026-11-03 v5 修复：热点正文段落类自 v4 模板起为 n-body（旧模板为 n-rel），
+    // 此前只按 n-rel 抽取，导致服务号热点正文（含各条「对天信」句）整段缺失
+    rel: richText((n.match(/<p class="n-(?:rel|body)"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
     // 2026-11-03 v4：标题本身即条目页锚点（n-link），原文 URL 由 href 带入
     src: (n.match(/<a class="n-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
     href: (n.match(/<a class="c-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
