@@ -42,6 +42,31 @@ checks.forEach(([label, val]) => {
   else ok(label + " 日期 = " + TODAY);
 });
 
+// 1b) 产出空窗 WARN（2026-11-03 新增，只 WARN 绝不 FAIL）：
+//     页脚「抓取于」日期与上一份已归档日报的日期相差 ≥2 天 → 中间存在无日报的空窗，期间商机未覆盖。
+//     日期取自同目录下 YYYY-MM-DD 开头的文件名（同日多版只算一天）。
+const gapM = rawHtml.match(/抓取于\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/);
+if (gapM) {
+  const cur = gapM[1];
+  try {
+    const dir = path.dirname(file);
+    const dates = new Set();
+    fs.readdirSync(dir).forEach((f) => {
+      const m = f.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (m && m[1] < cur) dates.add(m[1]);
+    });
+    if (dates.size) {
+      const prev = [...dates].sort().pop();
+      const diffDays = Math.round((new Date(cur) - new Date(prev)) / 86400000);
+      if (diffDays >= 2)
+        warns.push(
+          "上一期日报为 " + prev + "，本期 " + cur + "，相差 " + diffDays +
+          " 天（中间 " + (diffDays - 1) + " 天空窗，期间商机未覆盖）"
+        );
+    }
+  } catch (e) { /* 目录不可读时跳过，不影响门禁 */ }
+}
+
 // 2) 模板占位必须全部替换
 const placeholders = html.match(/\{\{[A-Z_]+\}\}/g);
 if (placeholders) fails.push("仍有未替换的占位符：" + [...new Set(placeholders)].join("、"));

@@ -9,16 +9,20 @@
   python3 references/fetch-rendered.py <URL>
   python3 references/fetch-rendered.py <URL> --json          # 只输出 JSON
   python3 references/fetch-rendered.py <URL> --field 预算     # 打印含该词的上下文
+  python3 references/fetch-rendered.py <ggzy列表URL> --kw 跟踪审计   # 省平台栏目关键词检索
 
 链路（自动，前一级失败降后一级）：
   1. 政采云 portal 接口直取（最快、最干净，纯 HTTP 无需浏览器）
-  2. Playwright 无头浏览器渲染（等 DOM + 抓 XHR）
-  3. agent-browser CLI
-  4. 内置 Chromium（--dump-dom）
+  2. 省公共资源交易平台数据接口直取（ggzy.zj.gov.cn 列表页专用，2026-11-03 实测接入：
+     目录式列表 URL 被 nginx 403，但数据接口 getFullTextDataNew 不拦，纯 HTTP 直连即取
+     条目 标题/发布时间/地区/详情URL/infoid；--kw 关键词检索实测比翻页更稳）
+  3. Playwright 无头浏览器渲染（等 DOM + 抓 XHR）
+  4. agent-browser CLI（open + eval document.body.innerText）
+  5. 内置 Chromium（--dump-dom）
 
 输出：统一 JSON（title / publish / expired / budget / deadline / text / via）
 """
-import sys, re, json, ssl, html as htmllib, subprocess, shutil, time, urllib.request, urllib.error
+import sys, re, json, ssl, html as htmllib, subprocess, shutil, time, datetime, urllib.request, urllib.error
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
@@ -164,7 +168,76 @@ def via_zcy_portal(url):
     return res
 
 
-# ── 通路 2：Playwright ────────────────────────────────────
+# ── 通路 2：省公共资源交易平台数据接口（ggzy.zj.gov.cn 列表页专用）────
+# 背景（2026-11-03 实测）：目录式列表 URL https://ggzy.zj.gov.cn/jyxxgk/002001/002001011/
+# 直抓 403（nginx，真浏览器亦 403）；但站内 SPA 的数据接口不拦，纯 HTTP 直连即得。
+# 该接口由列表页（/jyxxgk/list.html?...&mycatenum=002001011）客户端渲染时调用，
+# payload 格式经 Playwright 请求拦截实测捕获（见 信源清单.md §九）。
+GGZY_API = "https://ggzy.zj.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew"
+
+
+def via_ggzy_api(url, kw="", days=7):
+    if "ggzy.zj.gov.cn" not in url:
+        return None
+    m = re.search(r"mycatenum=(\d{9})", url) or re.search(r"/jyxxgk/\d{6}/(\d{9})(?:/|$)", url)
+    if not m:
+        return None  # 详情页等非列表 URL：不适用本通道，走后续渲染链路
+    catenum = m.group(1)
+    end = datetime.datetime.now()
+    start = end - datetime.timedelta(days=days)
+    entries, seen, total, pn = [], set(), None, 0
+    try:
+        while pn < 10:  # rn=16，最多 10 页＝160 条；rn 实测放大到 100 会被服务端静默返回空
+            payload = {
+                "token": "", "pn": pn, "rn": 16, "sdt": "", "edt": "",
+                "wd": kw, "inc_wd": "", "exc_wd": "", "fields": "title",
+                "cnum": "001", "sort": "{\"webdate\":\"0\"}", "ssort": "title",
+                "cl": 200, "terminal": "",
+                "condition": [
+                    {"fieldName": "categorynum", "isLike": True, "likeType": 2, "equal": catenum},
+                    {"fieldName": "infoc", "isLike": True, "likeType": 2, "equal": "33"},
+                ],
+                "time": [{"fieldName": "webdate",
+                          "startTime": start.strftime("%Y-%m-%d 00:00:00"),
+                          "endTime": end.strftime("%Y-%m-%d 23:59:59")}],
+                "highlights": "", "statistics": None, "unionCondition": None,
+                "accuracy": "", "noParticiple": "0", "searchRange": None, "isBusiness": "1",
+            }
+            req = urllib.request.Request(
+                GGZY_API, data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json;charset=UTF-8", "User-Agent": UA,
+                         "Referer": "https://ggzy.zj.gov.cn/jyxxgk/list.html?catenum=002001&mycatenum=" + catenum,
+                         "Origin": "https://ggzy.zj.gov.cn"})
+            d = json.loads(urllib.request.urlopen(req, context=SSL_CTX, timeout=30).read().decode("utf-8", "ignore"))
+            res = d.get("result") or {}
+            total = res.get("totalcount")
+            recs = res.get("records") or []
+            if not recs:
+                break
+            for x in recs:
+                iid = x.get("infoid") or ""
+                if iid in seen:
+                    continue  # 翻页结果集不稳定会重条（实测 117 条拉出 128 次含重复），去重
+                seen.add(iid)
+                entries.append({
+                    "title": (x.get("title") or "").strip(),
+                    "publish": x.get("webdate"),
+                    "area": x.get("infod"),
+                    "infoid": iid,
+                    "url": "https://ggzy.zj.gov.cn" + (x.get("linkurl") or ""),
+                })
+            pn += 1
+            if total and len(seen) >= int(total):
+                break
+    except Exception as e:
+        return {"via": "ggzy-api", "error": ("接口失败：" + str(e))[:200]}
+    if not entries:
+        return {"via": "ggzy-api", "error": "接口返回 0 条（栏目 %s，kw=%r，近 %d 天）" % (catenum, kw, days)}
+    text = "\n".join("%s | %s | %s | %s" % (e["publish"], e["area"], e["title"], e["url"]) for e in entries)
+    return {"via": "ggzy-api", "entries": entries, "total": total, "text": text}
+
+
+# ── 通路 3：Playwright ────────────────────────────────────
 def via_playwright(url):
     try:
         from playwright.sync_api import sync_playwright
@@ -199,17 +272,27 @@ def via_playwright(url):
         return {"via": "playwright", "error": str(e)[:200]}
 
 
-# ── 通路 3：agent-browser ────────────────────────────────
+# ── 通路 4：agent-browser ────────────────────────────────
 def via_agent_browser(url):
     exe = shutil.which("agent-browser")
     if not exe:
         return None
     try:
-        r = subprocess.run([exe, "fetch", url, "--format", "text"],
-                           capture_output=True, text=True, timeout=120)
+        # 2026-11-03 修复：CLI 无 `fetch` 子命令（实测 Unknown command: fetch），
+        # 改为 open → wait → eval（JS 必须单行，多行会被 shell 传参破坏）。
+        subprocess.run([exe, "open", url], capture_output=True, text=True, timeout=90)
+        subprocess.run([exe, "wait", "8000"], capture_output=True, text=True, timeout=30)
+        r = subprocess.run([exe, "eval", "document.body.innerText"],
+                           capture_output=True, text=True, timeout=60)
         text = (r.stdout or "").strip()
+        # eval 输出可能是 JSON 字符串字面量（带首尾引号）
+        if text.startswith('"') and text.endswith('"'):
+            try:
+                text = json.loads(text)
+            except Exception:
+                pass
         if len(text) < 80:
-            return {"via": "agent-browser", "error": (r.stderr or "输出过短")[:200]}
+            return {"via": "agent-browser", "error": ((r.stderr or r.stdout or "输出过短")[:200])}
         res = {"via": "agent-browser", "text": text}
         res.update(extract(text))
         return res
@@ -217,7 +300,7 @@ def via_agent_browser(url):
         return {"via": "agent-browser", "error": str(e)[:200]}
 
 
-# ── 通路 4：内置 Chromium --dump-dom ─────────────────────
+# ── 通路 5：内置 Chromium --dump-dom ─────────────────────
 def via_chromium(url):
     exe = shutil.which("chromium") or shutil.which("google-chrome")
     if not exe:
@@ -245,13 +328,24 @@ def main():
     field = None
     if "--field" in sys.argv:
         field = sys.argv[sys.argv.index("--field") + 1]
+    kw = ""
+    if "--kw" in sys.argv:
+        kw = sys.argv[sys.argv.index("--kw") + 1]
+    days = 7
+    if "--days" in sys.argv:
+        try:
+            days = int(sys.argv[sys.argv.index("--days") + 1])
+        except ValueError:
+            pass
 
     tried = []
     result = None
-    for fn in (via_zcy_portal, via_playwright, via_agent_browser, via_chromium):
+    for fn in (via_zcy_portal,
+               lambda u: via_ggzy_api(u, kw=kw, days=days),
+               via_playwright, via_agent_browser, via_chromium):
         r = fn(url)
         if r is None:
-            tried.append({"via": fn.__name__, "skip": "环境无此工具"})
+            tried.append({"via": getattr(fn, "__name__", "via_ggzy_api"), "skip": "环境无此工具/URL 不适用"})
             continue
         if r.get("error"):
             tried.append({"via": r.get("via"), "error": r["error"]})
@@ -260,12 +354,18 @@ def main():
         break
 
     if not result:
-        out = {"url": url, "ok": False, "tried": tried,
-               "conclusion": "全部通路失败，判『无法核验』→ 该条不得进板块一"}
+        concl = "全部通路失败，判『无法核验』→ 该条不得进板块一"
+        # 省平台栏目列表全链路失败 → 退 WebSearch 搜索兜底，产物必须如实标注可能漏收
+        if "ggzy.zj.gov.cn" in url and re.search(r"mycatenum=\d{9}|/jyxxgk/\d{6}/\d{9}/", url):
+            concl = ("该栏目直抓失败，本期依据搜索兜底，可能漏收——产物里必须原样标注这句话，"
+                     "不得让读者以为已抓全")
+        out = {"url": url, "ok": False, "tried": tried, "conclusion": concl}
     else:
         out = {"url": url, "ok": True, "tried": tried, **result}
         # 完整抓取的判定
-        if out.get("budget") or out.get("deadline"):
+        if out.get("entries") is not None:
+            out["verify"] = "列表 %d 条已取到（含 infoid/详情URL），候选进核验" % len(out["entries"])
+        elif out.get("budget") or out.get("deadline"):
             out["verify"] = "字段已取到，可进核验"
         else:
             out["verify"] = "正文已取到但预算/截止仍未见，标 ⚠待核"
@@ -278,6 +378,12 @@ def main():
         print(f"  [跳过/失败] {t}")
     if result:
         print(f"抓取通路: {result.get('via')}")
+        if result.get("entries"):
+            ents = result["entries"]
+            print(f"  条目: {len(ents)} 条（total={result.get('total')}），前 3 条：")
+            for e in ents[:3]:
+                print(f"    - {e['publish']} | {e['area']} | {e['title'][:50]}")
+                print(f"      {e['url']}")
         for k in ["title", "publish", "expiredAt", "projectCode", "purchaser",
                   "budget", "deadline", "consortium", "qualifications"]:
             if result.get(k) not in (None, "", []):
