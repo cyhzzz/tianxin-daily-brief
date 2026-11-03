@@ -172,7 +172,7 @@ def via_zcy_portal(url):
 # 背景（2026-11-03 实测）：目录式列表 URL https://ggzy.zj.gov.cn/jyxxgk/002001/002001011/
 # 直抓 403（nginx，真浏览器亦 403）；但站内 SPA 的数据接口不拦，纯 HTTP 直连即得。
 # 该接口由列表页（/jyxxgk/list.html?...&mycatenum=002001011）客户端渲染时调用，
-# payload 格式经 Playwright 请求拦截实测捕获（见 信源清单.md §九）。
+# payload 格式经 Playwright 请求拦截实测捕获（见 信源清单.md N1）。
 GGZY_API = "https://ggzy.zj.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew"
 
 

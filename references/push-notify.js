@@ -571,13 +571,11 @@ function buildWechatBoard(html, dateStr, plan) {
     230
   );
   const news = matchBlocks(hotSec, "news").map((n) => ({
-    title: textOf(((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || "")
-      // 2026-11-03 热点标题里的「源 ↗」条目页锚点不进标题文本（链接单列）
-      .replace(/<a class="src-link"[\s\S]*?<\/a>/gi, "")),
+    title: textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || ""),
     tags: tagObjs(n),
     rel: richText((n.match(/<p class="n-rel"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
-    // 2026-11-03 R12b：热点站条目页（源 ↗）与原文 URL 都带入服务号版——pushplus 页面内 <a> 可点
-    src: (n.match(/<a class="src-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
+    // 2026-11-03 v4：标题本身即条目页锚点（n-link），原文 URL 由 href 带入
+    src: (n.match(/<a class="n-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
     href: (n.match(/<a class="c-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
   }));
 
@@ -603,7 +601,7 @@ function buildWechatBoard(html, dateStr, plan) {
   T.push('<td valign="middle" style="padding:0 0 0 12px">');
   T.push('<div style="font-size:9px;letter-spacing:1.5px;color:#8FB0DC;line-height:1.4">TIANXIN CPA · DAILY INTELLIGENCE</div>');
   T.push('<div style="font-size:17px;font-weight:600;color:#ffffff;line-height:1.5;margin-top:2px">天台天信会计师事务所</div>');
-  T.push('<div style="font-size:11px;color:#C9D6EA;line-height:1.5;margin-top:1px">每日行业与商机情报看板 · 县城所赋能与外联获客</div>');
+  T.push('<div style="font-size:11px;color:#C9D6EA;line-height:1.5;margin-top:1px">每日行业与商机情报 · 县城所赋能与外联获客</div>');
   T.push("</td></tr></table></div>");
 
   T.push('<div style="background:#F7F7F7;padding:9px 16px;border-bottom:1px solid #D8D8D8;font-size:12px;color:#525252">' + esc(dateLine) + "</div>");
@@ -647,7 +645,7 @@ function buildWechatBoard(html, dateStr, plan) {
     "</div>";
 
   // ── Section 01 商机 ──
-  T.push(secHead("01", "台州本地商机", "近 7 天发布；NEW=近 2 天发布，急=≤7 天截止。已定标 / 已过截止的历史单不进看板。仅作情报提示，对外动作须经负责人复核。"));
+  T.push(secHead("01", "台州本地商机", "近 7 天发布；NEW=近 2 天发布，急=≤7 天截止。已定标 / 已过截止的历史单不在收录范围。仅作情报提示，对外动作须经负责人复核。"));
   T.push('<div style="padding:0 16px">');
   if (ttText || ttItems.length) {
     T.push('<div style="border:1px solid #D8D8D8;background:#FAFAFA;padding:12px;margin-top:12px">');
@@ -738,23 +736,21 @@ function buildWechatBoard(html, dateStr, plan) {
     T.push('<div style="padding:0 16px">');
     news.slice(0, hotShown).forEach((n, i) => {
       T.push('<div style="padding:12px 0' + (i ? ";border-top:1px solid #E4E4E4" : ";border-top:1px solid #E4E4E4;margin-top:10px") + '">');
-      T.push('<div style="font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.55">' + esc(n.title) + "</div>");
+      T.push(
+        n.src
+          ? '<div style="font-size:14px;font-weight:600;line-height:1.55"><a href="' + esc(n.src) + '" style="color:#1a1a1a;text-decoration:none">' + esc(n.title) + "</a></div>"
+          : '<div style="font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.55">' + esc(n.title) + "</div>"
+      );
       if (n.tags) T.push('<div style="margin-top:6px">' + n.tags + "</div>");
       if (P.relLen && n.rel)
         T.push('<div style="margin-top:6px;font-size:12.5px;color:#393939;line-height:1.75">' + clip(n.rel, P.relLen) + "</div>");
-      // 2026-11-03 R12b：服务号版热点条目链接（pushplus 页面内 <a> 可点；短信版为纯文本，链接不可点）
-      {
-        const links = [];
-        if (n.src)
-          links.push('<a href="' + esc(n.src) + '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE;font-size:12.5px">热点站条目 ↗</a>');
-        if (n.href)
-          links.push('<a href="' + esc(n.href) + '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE;font-size:12.5px">查看原文 ↗</a>');
-        if (links.length) T.push('<div style="margin-top:6px">' + links.join("&nbsp;&nbsp;") + "</div>");
-      }
+      // 2026-11-03 v4：标题可点进条目页；链接行仅保留「查看原文 ↗」
+      if (n.href)
+        T.push('<div style="margin-top:6px"><a href="' + esc(n.href) + '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE;font-size:12.5px">查看原文 ↗</a></div>');
       T.push("</div>");
     });
     if (hotShown < news.length)
-      T.push('<div style="padding:10px 0;font-size:12px;color:#8a8a8a">余 ' + (news.length - hotShown) + " 条热点见邮件完整看板。</div>");
+      T.push('<div style="padding:10px 0;font-size:12px;color:#8a8a8a">余 ' + (news.length - hotShown) + " 条热点见邮件完整版。</div>");
     T.push("</div>");
   }
 
@@ -772,7 +768,7 @@ function buildWechatBoard(html, dateStr, plan) {
 
   // 页脚
   T.push('<div style="background:#F7F7F7;border-top:1px solid #D8D8D8;padding:14px 16px;margin-top:20px">');
-  T.push('<div style="font-size:11px;color:#6f6f6f;line-height:1.75">数据来源：审计热点站 · 浙江政府采购网 · 中国政府采购网 · 台州浙里招标 · 台州中介服务网 · 台州阳光采购 · 天台县政府门户公共资源交易 · 天台阳光招采 · 浙江省公共资源交易平台；抓取于 ' + esc(dateStr) + "。商机仅作情报提示，金额、截止时间与资质门槛以公告原文为准，不得据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</div>");
+  T.push('<div style="font-size:11px;color:#6f6f6f;line-height:1.75">数据来源：行业热点来源 · 浙江政府采购网 · 中国政府采购网 · 台州浙里招标 · 台州中介服务网 · 台州阳光采购 · 天台县政府门户公共资源交易 · 天台阳光招采 · 浙江省公共资源交易平台；抓取于 ' + esc(dateStr) + "。商机仅作情报提示，金额、截止时间与资质门槛以公告原文为准，不得据此直接承诺投标；对外动作须经负责人（及事务所）人工复核。</div>");
   T.push('<div style="font-size:10px;color:#8a8a8a;line-height:1.7;margin-top:8px">天台天信会计师事务所 · TIANXIN CPA · 由「天信每日日报」自动生成</div>');
   T.push("</div>");
 
@@ -809,7 +805,7 @@ function prepare(raw) {
   const safe = cut > 0 ? cut : LIMIT;
   html =
     html.slice(0, safe) +
-    '<section><p style="color:#8a8a8a">（内容过长已精简，完整看板见对话/邮件）</p></section></body></html>';
+    '<section><p style="color:#8a8a8a">（内容过长已精简，完整版见对话/邮件）</p></section></body></html>';
   return { html, trimmed: true };
 }
 
