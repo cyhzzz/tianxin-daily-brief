@@ -87,3 +87,4 @@ node references/push-notify.js "天信每日日报 · {日期}" "daily/{日期}.
 - **规范文件只有一个**：本 `AGENTS.md`。不要再新建 `CLAUDE.md` / `.cursorrules` / `GEMINI.md` 等平行规范，需要的话在本文件加节。
 - **改规则走 PR**，不直接推 `master`；分支名 `chore/{要点}-{YYYYMMDD}`。
 - **文档改动须与代码/脚本同步**：改字段契约要同改 `check-dashboard.js`；改抓取方式要同改 `信源清单.md` 与 `SKILL.md` 信源段。
+- **本仓是镜像发布仓 + 每日产出归档仓，不改 skill 代码**：skill 唯一源是主仓 `cyhzzz/tianxin-agents` 的 `运营/天信日报skill/`，改动在主仓做、合并后经 `sync-daily-brief.sh` 单向下发到本仓。本仓可直接写的只有 `daily/` 每日产出；要改 skill 逻辑，去主仓改再同步过来。⚠️ sync 方向是「本体 → 本仓」，逆行（在本仓改完跑 sync）会用旧内容覆盖新改动。
