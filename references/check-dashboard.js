@@ -103,8 +103,36 @@ if (/信源|抓取方式/.test(hotNote)) { fails.push("板块二说明出现 信
 if (newsBlocks.length && hotStructOk) ok("行业热点消息结构固化（" + newsBlocks.length + " 条均 标题+正文+底部超链，无信源/评分/抓取方式/表格）");
 else if (newsBlocks.length) warns.push("行业热点消息结构未完全固化（见上方失败项），推送前须修复");
 
-// 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）
-//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
+// 5c) 商机「原子核验」门禁（2026-11-03 新增，源自路桥误报事故）
+//     规则见 references/招标商机处理规范.md §〇之二：
+//     若卡片同时出现「进行中」标签 且 预算与截止均为「未披露/以…为准」→ 无任何实值支撑，判为缺陷。
+const cards = oppSec.match(/<div class="card"[\s\S]*?(?=<div class="card"|<\/div>\s*<\/div>\s*<\/section>|$)/g) || [];
+let hollow = 0;
+cards.forEach((c, i) => {
+  const title = ((c.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/) || [])[1] || "")
+    .replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!title) return; // 空列占位
+  const tags = (c.match(/<span class="tag[^"]*">([\s\S]*?)<\/span>/g) || []).join(" ");
+  const txt = c.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const isLive = /进行中|报名中/.test(tags) || /进行中|报名中/.test(txt);
+  if (!isLive) return;
+  // 金额与截止是否都缺实值
+  const moneyNotGiven = /(预算|限价|金额)[^；;。|]{0,12}(未披露|详见|以.{0,8}为准)/.test(txt);
+  const deadlineNotGiven = /(截止|开标)[^；;。|]{0,16}(未披露|详见|以.{0,12}为准)/.test(txt);
+  if (moneyNotGiven && deadlineNotGiven) {
+    hollow++;
+    fails.push(
+      "商机「" + title + "」标进行中，但预算与截止均无实值（核验门禁未过，须剔除或补实值）"
+    );
+  }
+});
+// 核验等级标记必须上书（✔核验 / ⚠待核）——缺标记说明跳过了门禁
+if (cards.length && !/✔核验|⚠待核/.test(oppSec)) {
+  warns.push("板块一商机未见核验等级标记（✔核验 / ⚠待核），请按 §〇之二 补标记");
+}
+if (cards.length && !hollow) ok("商机核验门禁通过（无「进行中+双未披露」空洞卡片）");
+
+// 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
 try {
   const pn = require("./push-notify.js");
   const built = pn.prepare(pn.absAssets(rawHtml));
