@@ -7,7 +7,7 @@
  *   ③ 245830958@qq.com（邮件 mail）
  *
  * 推送机制（详细规范见 references/推送规范.md）：
- *   - cmcc(5G 消息)：template:"txt"，发**要点压缩版纯文本**（编号 + 要点，默认 ≤420 字）。
+ *   - cmcc(5G 消息)：template:"txt"，发**要点压缩版纯文本**（编号 + 要点，默认 ≤480 字）。
  *     通道经「新消息ClawBot」应用号下发，正文过长会投递异常（实测 1732 字时手机端
  *     收不到正常正文），故按 商机 > 天台县 > 提示 > 热点 的优先级装预算、逐档降级。
  *   - wechat(服务号)：template:"html"，发**移动端 HTML 看板**（全内联样式、单列重排），
@@ -295,7 +295,7 @@ function tagTexts(frag) {
  *
  * @param {string} html  看板 HTML
  * @param {string} dateStr 日期 YYYY-MM-DD
- * @param {number} [maxChars] 字数预算，默认 420
+ * @param {number} [maxChars] 字数预算，默认 480
  */
 function buildSmsText(html, dateStr, maxChars) {
   const BUDGET = maxChars || 480;
