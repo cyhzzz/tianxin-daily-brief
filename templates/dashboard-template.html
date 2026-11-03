@@ -213,12 +213,14 @@
 
       <!-- 看板：列数随当日实际条目增减（1–3 列）；没有卡片的列整列删除，不要用"暂无"占位卡
            卡片骨架（每条商机一张，字段缺失写"未披露"）：
+           ⚠️ 核验标记（✔核验 / ⚠待核）必须写在 c-tags 第一行，缺标记视为跳过了核验门禁。
+              详见 references/招标商机处理规范.md §〇之二。
            <div class="col">
              <div class="col-head">列标题 <span class="cnt">N</span></div>
              <div class="col-stack">
                <div class="card">
                  <div class="c-top"><h4 class="c-title">项目名称</h4></div>
-                 <div class="c-tags"><span class="tag tag-blue">国企采购</span><span class="tag tag-urgent">急 · 11-05 开标</span><span class="tag tag-gray">评分 高</span></div>
+                 <div class="c-tags"><span class="tag tag-navy">✔核验</span><span class="tag tag-blue">国企采购</span><span class="tag tag-urgent">急 · 11-05 开标</span><span class="tag tag-gray">评分 高</span></div>
                  <dl class="meta">
                    <dt>采购人</dt><dd>…</dd>
                    <dt>预算·限价</dt><dd class="num">…</dd>
