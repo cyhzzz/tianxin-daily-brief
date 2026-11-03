@@ -84,11 +84,18 @@ if (gapM) {
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<[^>]+>/g, "\n");
   titleTexts.forEach((t) => { if (t) visible = visible.split(t).join("〔原文标题〕"); });
+  // 1c 读者面词表（2026-11-03 扩充 · 只 WARN）：技术话术 + 内部元信息（v1-v4/修订版/
+  // 正式版/口径/快照/草稿/自查/归档/读者面/精简版）+ 内部命名与通道（热点站/看板/
+  // 邮件版/服务号版/skill/5G/pushplus）。标题豁免兜误伤：真实公告标题/原文本身含
+  // 这些词的（如「配套制度将制修订」不含「修订版」三字连排，天然不误伤）放行。
   const TECH_WORDS = ["articleId", "pdftotext", "portal/detail", "expiredAt",
                       "降级", "门禁", "抓取链路", "限域检索", "直抓", "反查", "扫描件",
-                      "渲染", "接口", "403"];
+                      "渲染", "接口", "403",
+                      "修订版", "正式版", "口径", "快照", "草稿", "自查", "归档",
+                      "读者面", "精简版", "热点站", "看板", "邮件版", "服务号版",
+                      "skill", "SKILL", "5G", "pushplus"];
   const hit = TECH_WORDS.filter((w) => visible.indexOf(w) >= 0);
-  if (/\bV[123]\b/.test(visible)) hit.push("V1/V2/V3");
+  if (/\b[Vv][1234]\b/.test(visible)) hit.push("V1/V2/V3/V4");
   if (hit.length)
     warns.push("读者面出现技术表述（" + hit.join("、") + "）——技术过程只留内部记录，不落读者面（规范 §〇之四）");
 }
