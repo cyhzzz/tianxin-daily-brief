@@ -103,11 +103,16 @@ if (/信源|抓取方式/.test(hotNote)) { fails.push("板块二说明出现 信
 if (newsBlocks.length && hotStructOk) ok("行业热点消息结构固化（" + newsBlocks.length + " 条均 标题+正文+底部超链，无信源/评分/抓取方式/表格）");
 else if (newsBlocks.length) warns.push("行业热点消息结构未完全固化（见上方失败项），推送前须修复");
 
-// 5c) 商机「原子核验」门禁（2026-11-03 新增，源自路桥误报事故）
+// 5c) 商机「原子核验」门禁（2026-11-03 新增，源自路桥误报事故；同日扩展两条）
 //     规则见 references/招标商机处理规范.md §〇之二：
-//     若卡片同时出现「进行中」标签 且 预算与截止均为「未披露/以…为准」→ 无任何实值支撑，判为缺陷。
+//     a) 卡片标「进行中」且 预算与截止均为「未披露/以…为准」→ 无实值支撑，判为缺陷；
+//     b) 卡片标「进行中」且正文含「截止/开标」+ 可解析日期 → 卡内最晚日期必须不早于运行当日（早于 = 过期单）；
+//        日期无法解析时不判（维持现状，不因解析失败制造新 FAIL）；
+//     c) 卡片标「进行中」且正文含「采购意向/意向公告」→ 意向单只作线索，不得标进行中。
 const cards = oppSec.match(/<div class="card"[\s\S]*?(?=<div class="card"|<\/div>\s*<\/div>\s*<\/section>|$)/g) || [];
 let hollow = 0;
+let expiredBad = 0;
+let intentBad = 0;
 cards.forEach((c, i) => {
   const title = ((c.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/) || [])[1] || "")
     .replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
@@ -115,8 +120,8 @@ cards.forEach((c, i) => {
   const tags = (c.match(/<span class="tag[^"]*">([\s\S]*?)<\/span>/g) || []).join(" ");
   const txt = c.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
   const isLive = /进行中|报名中/.test(tags) || /进行中|报名中/.test(txt);
-  if (!isLive) return;
-  // 金额与截止是否都缺实值
+  if (!isLive) return; // 已成交/已中标等如实标注的卡不适用以下三条
+  // a) 金额与截止是否都缺实值
   const moneyNotGiven = /(预算|限价|金额)[^；;。|]{0,12}(未披露|详见|以.{0,8}为准)/.test(txt);
   const deadlineNotGiven = /(截止|开标)[^；;。|]{0,16}(未披露|详见|以.{0,12}为准)/.test(txt);
   if (moneyNotGiven && deadlineNotGiven) {
@@ -125,12 +130,46 @@ cards.forEach((c, i) => {
       "商机「" + title + "」标进行中，但预算与截止均无实值（核验门禁未过，须剔除或补实值）"
     );
   }
+  // b) 截止/开标日期已过当日（取卡内最晚日期判定，避免把"发布日+截止日"里的发布日误判成截止）
+  if (/(截止|开标)/.test(txt)) {
+    const found = [];
+    const fullRe = /(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?/g;
+    let dm;
+    while ((dm = fullRe.exec(txt))) found.push(new Date(+dm[1], +dm[2] - 1, +dm[3]));
+    const rest = txt.replace(fullRe, " ");
+    const partRe = /(^|\D)(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?(?!\d)/g;
+    while ((dm = partRe.exec(rest))) {
+      let dt = new Date(d.getFullYear(), +dm[2] - 1, +dm[3]);
+      // 年份缺失：归一到本年；若已远在过去（超 180 天），按招标惯例视为下一年度，避免误杀
+      if ((dt - d) / 86400000 < -180) dt = new Date(d.getFullYear() + 1, +dm[2] - 1, +dm[3]);
+      found.push(dt);
+    }
+    if (found.length) {
+      const latest = new Date(Math.max.apply(null, found));
+      const latestStr = latest.getFullYear() + "-" + p(latest.getMonth() + 1) + "-" + p(latest.getDate());
+      const today0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      if (latest < today0) {
+        expiredBad++;
+        fails.push(
+          "商机「" + title + "」标进行中，但卡内最晚日期 " + latestStr + " 已早于今日（" + TODAY + "）——过期单不得标进行中"
+        );
+      }
+    }
+  }
+  // c) 采购意向单不得标进行中（意向只说明"预计采购"，无截止时间）
+  if (/采购意向|意向公告/.test(txt)) {
+    intentBad++;
+    fails.push(
+      "商机「" + title + "」为采购意向/意向公告，不得标「进行中」（意向单只作线索，不参与活单计数）"
+    );
+  }
 });
 // 核验等级标记必须上书（✔核验 / ⚠待核）——缺标记说明跳过了门禁
 if (cards.length && !/✔核验|⚠待核/.test(oppSec)) {
   warns.push("板块一商机未见核验等级标记（✔核验 / ⚠待核），请按 §〇之二 补标记");
 }
-if (cards.length && !hollow) ok("商机核验门禁通过（无「进行中+双未披露」空洞卡片）");
+if (cards.length && !hollow && !expiredBad && !intentBad)
+  ok("商机核验门禁通过（无「进行中+双未披露」空洞卡片、无过期截止、无意向单标进行中）");
 
 // 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
 try {
