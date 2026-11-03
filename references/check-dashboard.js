@@ -52,7 +52,8 @@ if (/历史参考/.test(html)) fails.push("仍存在「历史参考」（该区�
 else ok("无「历史参考」区");
 
 // 4) 速览数字 == 实际条目数（数字由数据算出，不硬编码）
-//    活单口径（2026-11-03 修正）：活单数只数「进行中/报名中」卡；⚠待核/前瞻卡不计入活单，
+//    活单口径（2026-11-03 晚修正：有效性优先）：活单数数「进行中/报名中/有效」卡（「有效」= 公示/征集类
+//    有效性已证实但字段未披露，算活单不降级）；⚠待核卡（有效性本身存疑）不计入活单，
 //    速览须标「含待核 N」；活单数 + 待核数 == 板块一卡片数。
 const statOf = (label) => {
   const re = /<div class="stat[^"]*">\s*<div class="n">([^<]*)<\/div>\s*<div class="l">([^<]*)<\/div>/g;
@@ -72,7 +73,7 @@ cardBlocks.forEach((c) => {
   if (!/<h4 class="c-title"/.test(c)) return;
   const tags = (c.match(/<span class="tag[^"]*">([\s\S]*?)<\/span>/g) || []).join(" ");
   const txt = c.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-  if (/进行中|报名中/.test(tags) || /进行中|报名中/.test(txt)) liveCardCount++;
+  if (/进行中|报名中|有效/.test(tags) || /进行中|报名中/.test(txt)) liveCardCount++;
 });
 const hotSec = (html.match(/<section id="hotspots"[\s\S]*?<\/section>/) || [])[0] || "";
 const newsCount = (hotSec.match(/<h3 class="n-title"/g) || []).length;
@@ -84,8 +85,8 @@ if (!liveStat) warns.push("速览未找到「活单」数字");
 else {
   const nPendingM = liveStat.l.match(/含待核\s*(\d+)/);
   const nPending = nPendingM ? parseInt(nPendingM[1], 10) : null;
-  if (nPending === null) fails.push("速览「活单」未按新口径标注「含待核 N」（2026-11-03 起：活单只数进行中卡，待核另计）");
-  else if (liveStat.n !== liveCardCount) fails.push("速览活单数 " + liveStat.n + " ≠ 进行中卡片数 " + liveCardCount + "（活单只数「进行中/报名中」卡，待核卡不得计入）");
+  if (nPending === null) fails.push("速览「活单」未按口径标注「含待核 N」（2026-11-03 起：活单数「进行中/报名中/有效」卡，待核另计）");
+  else if (liveStat.n !== liveCardCount) fails.push("速览活单数 " + liveStat.n + " ≠ 活单卡片数 " + liveCardCount + "（活单数「进行中/报名中/有效」卡，待核卡不得计入）");
   else if (liveStat.n + nPending !== cardCount) fails.push("速览活单数+待核数 " + (liveStat.n + nPending) + " ≠ 商机卡片数 " + cardCount);
   else ok("速览活单数 = 进行中卡 " + liveCardCount + "，另待核 " + nPending + "，合计 = 卡片数 = " + cardCount);
 }
@@ -93,7 +94,7 @@ if (!nHotStat) warns.push("速览未找到「热点」数字");
 else if (nHotStat.n !== newsCount) warns.push("速览热点数 " + nHotStat.n + " ≠ 热点条目数 " + newsCount + "（若末条为汇总条目可忽略）");
 else ok("速览热点数 = 热点条目数 = " + newsCount);
 if (nTTStat && nTTStat.n > 0 && !/天台县/.test(oppSec)) warns.push("速览天台县 > 0，但商机区未出现天台县条目");
-console.log("  统计：卡片 " + cardCount + "（进行中 " + liveCardCount + " / 待核 " + (cardCount - liveCardCount) + "）/ 热点 " + newsCount + " / 提示 " + tipCount.length);
+console.log("  统计：卡片 " + cardCount + "（活单 " + liveCardCount + " / 待核 " + (cardCount - liveCardCount) + "）/ 热点 " + newsCount + " / 提示 " + tipCount.length);
 
 // 5) 结构完整性（短信全文抽取依赖）
 ["opportunities", "hotspots", "tips"].forEach((id) => {
@@ -119,10 +120,13 @@ if (/信源|抓取方式/.test(hotNote)) { fails.push("板块二说明出现 信
 if (newsBlocks.length && hotStructOk) ok("行业热点消息结构固化（" + newsBlocks.length + " 条均 标题+正文+底部超链，无信源/评分/抓取方式/表格）");
 else if (newsBlocks.length) warns.push("行业热点消息结构未完全固化（见上方失败项），推送前须修复");
 
-// 5c) 商机「原子核验」门禁（2026-11-03 新增，源自路桥误报事故；同日扩展两条）
-//     规则见 references/招标商机处理规范.md §〇之二：
-//     a) 卡片标「进行中」且 预算与截止均为「未披露/以…为准」→ 无实值支撑，判为缺陷；
-//     b) 卡片标「进行中」且「截止/开标」字段上有可解析日期 → 取这些日期中最晚者，必须不早于运行当日（早于 = 过期单）；
+// 5c) 商机「有效性证据」门禁（2026-11-03 晚口径修正：有效性优先，字段缺失不降级）
+//     规则见 references/招标商机处理规范.md §〇之二（修正缘由：一江山公示单被误标待核）：
+//     a) 卡片标「进行中/报名中/有效」且截止/开标**无实值日期** → 必须具备「有效性三件套」：
+//        ① 发布/公示日期实值在卡；② 公示期/公告期含日期在卡；③ 原文链接（c-link）在卡。
+//        三者齐 → 有效（预算/截止等字段「未披露（原文查看）」**不扣分不降级**）；缺任一 → FAIL「有效性证据不足」；
+//        截止/开标**有**实值日期的卡不走 a)（由 b) 判过期）；
+//     b) 卡片标「进行中/报名中/有效」且「截止/开标」字段上有可解析日期 → 取这些日期中最晚者，必须不早于运行当日（早于 = 过期单）；
 //        只认截止/开标字段上的日期（关键词在前、间隔≤6个非数字字符），发布日期、公告日期等其他日期不参与判定
 //        （2026-11-03 收紧边界：防「仅发布日期 + 截止未披露」被发布日误杀）；
 //        日期恰为今日不 FAIL；解析不出维持 PASS，不因解析失败制造新 FAIL；
@@ -137,43 +141,47 @@ cards.forEach((c, i) => {
   if (!title) return; // 空列占位
   const tags = (c.match(/<span class="tag[^"]*">([\s\S]*?)<\/span>/g) || []).join(" ");
   const txt = c.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-  const isLive = /进行中|报名中/.test(tags) || /进行中|报名中/.test(txt);
+  const isLive = /进行中|报名中|有效/.test(tags) || /进行中|报名中/.test(txt);
   if (!isLive) return; // 已成交/已中标等如实标注的卡不适用以下三条
-  // a) 金额与截止是否都缺实值
-  const moneyNotGiven = /(预算|限价|金额)[^；;。|]{0,12}(未披露|详见|以.{0,8}为准)/.test(txt);
-  const deadlineNotGiven = /(截止|开标)[^；;。|]{0,16}(未披露|详见|以.{0,12}为准)/.test(txt);
-  if (moneyNotGiven && deadlineNotGiven) {
-    hollow++;
-    fails.push(
-      "商机「" + title + "」标进行中，但预算与截止均无实值（核验门禁未过，须剔除或补实值）"
-    );
-  }
   // b) 截止过期拦截：只认「截止/开标」字段上的日期——关键词在前、间隔≤6个非数字字符（含「报名截止」）；
   //    发布日期、公告日期等其他日期不参与判定（2026-11-03 收紧：防「仅发布日期+截止未披露」被发布日误杀）；
-  //    多日期取最晚；恰为今日不 FAIL；解析不出维持 PASS。
+  //    多日期取最晚；恰为今日不 FAIL；解析不出维持 PASS。deadlineDates 同时供 a) 判断「有无实值」。
+  const deadlineDates = [];
   {
     const KW_FULL = /(截止|开标)[^；;。|\d]{0,6}(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?/g;
     const KW_PART = /(截止|开标)[^；;。|\d]{0,6}(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?(?!\d)/g;
-    const found = [];
     let dm;
-    while ((dm = KW_FULL.exec(txt))) found.push(new Date(+dm[2], +dm[3] - 1, +dm[4]));
+    while ((dm = KW_FULL.exec(txt))) deadlineDates.push(new Date(+dm[2], +dm[3] - 1, +dm[4]));
     const rest = txt.replace(KW_FULL, " ");
     while ((dm = KW_PART.exec(rest))) {
       let dt = new Date(d.getFullYear(), +dm[2] - 1, +dm[3]);
       // 年份缺失：归一到本年；若已远在过去（超 180 天），按招标惯例视为下一年度，避免误杀
       if ((dt - d) / 86400000 < -180) dt = new Date(d.getFullYear() + 1, +dm[2] - 1, +dm[3]);
-      found.push(dt);
+      deadlineDates.push(dt);
     }
-    if (found.length) {
-      const latest = new Date(Math.max.apply(null, found));
+    if (deadlineDates.length) {
+      const latest = new Date(Math.max.apply(null, deadlineDates));
       const latestStr = latest.getFullYear() + "-" + p(latest.getMonth() + 1) + "-" + p(latest.getDate());
       const today0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       if (latest < today0) {
         expiredBad++;
         fails.push(
-          "商机「" + title + "」标进行中，但截止/开标字段最晚日期 " + latestStr + " 已早于今日（" + TODAY + "）——过期单不得标进行中"
+          "商机「" + title + "」标进行中/有效，但截止/开标字段最晚日期 " + latestStr + " 已早于今日（" + TODAY + "）——过期单不得标进行中"
         );
       }
+    }
+  }
+  // a) 有效性三件套（仅当截止/开标无实值日期时）：发布日期 + 公示期/公告期 + 原文链接；
+  //    三者齐 = 有效（字段「未披露（原文查看）」不扣分）；缺任一 = 有效性证据不足 FAIL。
+  if (!deadlineDates.length) {
+    const hasPubDate = /(发布|公示日|公告日)[^；;。|\d]{0,8}(\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}|\d{4}-\d{2}-\d{2})/.test(txt);
+    const hasPeriod = /(公示期|公告期|公示时间|征集时间)[^；;。]{0,40}\d/.test(txt);
+    const hasLink = /class="c-link"/.test(c);
+    if (!(hasPubDate && hasPeriod && hasLink)) {
+      hollow++;
+      fails.push(
+        "商机「" + title + "」标进行中/有效，但有效性证据不足（须：截止/开标实值，或 发布日期+公示期+原文链接 三件套；字段未披露不扣分）"
+      );
     }
   }
   // c) 采购意向单不得标进行中（意向只说明"预计采购"，无截止时间）
@@ -197,7 +205,7 @@ if (cards.length) {
     warns.push("核验率偏低（✔核验 " + verifiedCount + " / 待核 " + pendingCount + " / 共 " + cardCount + " 卡），检查抓取链路（仅提醒不拦截）");
 }
 if (cards.length && !hollow && !expiredBad && !intentBad)
-  ok("商机核验门禁通过（无「进行中+双未披露」空洞卡片、无过期截止、无意向单标进行中）");
+  ok("商机核验门禁通过（无有效性证据不足卡片、无过期截止、无意向单标进行中）");
 
 // 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
 try {
