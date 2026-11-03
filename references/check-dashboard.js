@@ -188,6 +188,14 @@ cards.forEach((c, i) => {
 if (cards.length && !/✔核验|⚠待核/.test(oppSec)) {
   warns.push("板块一商机未见核验等级标记（✔核验 / ⚠待核），请按 §〇之二 补标记");
 }
+// 核验率聚合提醒（2026-11-03 新增，只 WARN 绝不 FAIL）：有卡且零✔核验，或待核占比 > 2/3，
+// 提示抓取链路可能整体劣化。零✔核验在 1 张卡时也提醒；占比阈值从 3 卡起才有区分度，但统一按 > 2/3 算即可。
+if (cards.length) {
+  const verifiedCount = (oppSec.match(/✔核验/g) || []).length;
+  const pendingCount = cardCount - liveCardCount;
+  if (verifiedCount === 0 || pendingCount > cardCount * 2 / 3)
+    warns.push("核验率偏低（✔核验 " + verifiedCount + " / 待核 " + pendingCount + " / 共 " + cardCount + " 卡），检查抓取链路（仅提醒不拦截）");
+}
 if (cards.length && !hollow && !expiredBad && !intentBad)
   ok("商机核验门禁通过（无「进行中+双未披露」空洞卡片、无过期截止、无意向单标进行中）");
 
