@@ -52,10 +52,12 @@ if (/历史参考/.test(html)) fails.push("仍存在「历史参考」（该区�
 else ok("无「历史参考」区");
 
 // 4) 速览数字 == 实际条目数（数字由数据算出，不硬编码）
+//    活单口径（2026-11-03 修正）：活单数只数「进行中/报名中」卡；⚠待核/前瞻卡不计入活单，
+//    速览须标「含待核 N」；活单数 + 待核数 == 板块一卡片数。
 const statOf = (label) => {
   const re = /<div class="stat[^"]*">\s*<div class="n">([^<]*)<\/div>\s*<div class="l">([^<]*)<\/div>/g;
   let m;
-  while ((m = re.exec(html))) if (m[2].indexOf(label) >= 0) return parseInt(m[1].trim(), 10);
+  while ((m = re.exec(html))) if (m[2].indexOf(label) >= 0) return { n: parseInt(m[1].trim(), 10), l: m[2] };
   return null;
 };
 const countBlocks = (cls) => {
@@ -64,20 +66,34 @@ const countBlocks = (cls) => {
 };
 const oppSec = (html.match(/<section id="opportunities"[\s\S]*?<\/section>/) || [])[0] || "";
 const cardCount = (oppSec.match(/<h4 class="c-title"/g) || []).length;
+const cardBlocks = oppSec.match(/<div class="card"[\s\S]*?(?=<div class="card"|<\/div>\s*<\/div>\s*<\/section>|$)/g) || [];
+let liveCardCount = 0;
+cardBlocks.forEach((c) => {
+  if (!/<h4 class="c-title"/.test(c)) return;
+  const tags = (c.match(/<span class="tag[^"]*">([\s\S]*?)<\/span>/g) || []).join(" ");
+  const txt = c.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  if (/进行中|报名中/.test(tags) || /进行中|报名中/.test(txt)) liveCardCount++;
+});
 const hotSec = (html.match(/<section id="hotspots"[\s\S]*?<\/section>/) || [])[0] || "";
 const newsCount = (hotSec.match(/<h3 class="n-title"/g) || []).length;
 const tipCount = ((html.match(/<section id="tips"[\s\S]*?<\/section>/) || [])[0] || "").match(/<span class="t-body"/g) || [];
-const nLive = statOf("活单");
-const nTT = statOf("天台县");
-const nHot = statOf("热点");
-if (nLive === null) warns.push("速览未找到「活单」数字");
-else if (nLive !== cardCount) fails.push("速览活单数 " + nLive + " ≠ 商机卡片数 " + cardCount);
-else ok("速览活单数 = 卡片数 = " + cardCount);
-if (nHot === null) warns.push("速览未找到「热点」数字");
-else if (nHot !== newsCount) warns.push("速览热点数 " + nHot + " ≠ 热点条目数 " + newsCount + "（若末条为汇总条目可忽略）");
+const liveStat = statOf("活单");
+const nTTStat = statOf("天台县");
+const nHotStat = statOf("热点");
+if (!liveStat) warns.push("速览未找到「活单」数字");
+else {
+  const nPendingM = liveStat.l.match(/含待核\s*(\d+)/);
+  const nPending = nPendingM ? parseInt(nPendingM[1], 10) : null;
+  if (nPending === null) fails.push("速览「活单」未按新口径标注「含待核 N」（2026-11-03 起：活单只数进行中卡，待核另计）");
+  else if (liveStat.n !== liveCardCount) fails.push("速览活单数 " + liveStat.n + " ≠ 进行中卡片数 " + liveCardCount + "（活单只数「进行中/报名中」卡，待核卡不得计入）");
+  else if (liveStat.n + nPending !== cardCount) fails.push("速览活单数+待核数 " + (liveStat.n + nPending) + " ≠ 商机卡片数 " + cardCount);
+  else ok("速览活单数 = 进行中卡 " + liveCardCount + "，另待核 " + nPending + "，合计 = 卡片数 = " + cardCount);
+}
+if (!nHotStat) warns.push("速览未找到「热点」数字");
+else if (nHotStat.n !== newsCount) warns.push("速览热点数 " + nHotStat.n + " ≠ 热点条目数 " + newsCount + "（若末条为汇总条目可忽略）");
 else ok("速览热点数 = 热点条目数 = " + newsCount);
-if (nTT !== null && nTT > 0 && !/天台县/.test(oppSec)) warns.push("速览天台县 > 0，但商机区未出现天台县条目");
-console.log("  统计：卡片 " + cardCount + " / 热点 " + newsCount + " / 提示 " + tipCount.length);
+if (nTTStat && nTTStat.n > 0 && !/天台县/.test(oppSec)) warns.push("速览天台县 > 0，但商机区未出现天台县条目");
+console.log("  统计：卡片 " + cardCount + "（进行中 " + liveCardCount + " / 待核 " + (cardCount - liveCardCount) + "）/ 热点 " + newsCount + " / 提示 " + tipCount.length);
 
 // 5) 结构完整性（短信全文抽取依赖）
 ["opportunities", "hotspots", "tips"].forEach((id) => {
@@ -106,8 +122,10 @@ else if (newsBlocks.length) warns.push("行业热点消息结构未完全固化�
 // 5c) 商机「原子核验」门禁（2026-11-03 新增，源自路桥误报事故；同日扩展两条）
 //     规则见 references/招标商机处理规范.md §〇之二：
 //     a) 卡片标「进行中」且 预算与截止均为「未披露/以…为准」→ 无实值支撑，判为缺陷；
-//     b) 卡片标「进行中」且正文含「截止/开标」+ 可解析日期 → 卡内最晚日期必须不早于运行当日（早于 = 过期单）；
-//        日期无法解析时不判（维持现状，不因解析失败制造新 FAIL）；
+//     b) 卡片标「进行中」且「截止/开标」字段上有可解析日期 → 取这些日期中最晚者，必须不早于运行当日（早于 = 过期单）；
+//        只认截止/开标字段上的日期（关键词在前、间隔≤6个非数字字符），发布日期、公告日期等其他日期不参与判定
+//        （2026-11-03 收紧边界：防「仅发布日期 + 截止未披露」被发布日误杀）；
+//        日期恰为今日不 FAIL；解析不出维持 PASS，不因解析失败制造新 FAIL；
 //     c) 卡片标「进行中」且正文含「采购意向/意向公告」→ 意向单只作线索，不得标进行中。
 const cards = oppSec.match(/<div class="card"[\s\S]*?(?=<div class="card"|<\/div>\s*<\/div>\s*<\/section>|$)/g) || [];
 let hollow = 0;
@@ -130,15 +148,17 @@ cards.forEach((c, i) => {
       "商机「" + title + "」标进行中，但预算与截止均无实值（核验门禁未过，须剔除或补实值）"
     );
   }
-  // b) 截止/开标日期已过当日（取卡内最晚日期判定，避免把"发布日+截止日"里的发布日误判成截止）
-  if (/(截止|开标)/.test(txt)) {
+  // b) 截止过期拦截：只认「截止/开标」字段上的日期——关键词在前、间隔≤6个非数字字符（含「报名截止」）；
+  //    发布日期、公告日期等其他日期不参与判定（2026-11-03 收紧：防「仅发布日期+截止未披露」被发布日误杀）；
+  //    多日期取最晚；恰为今日不 FAIL；解析不出维持 PASS。
+  {
+    const KW_FULL = /(截止|开标)[^；;。|\d]{0,6}(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?/g;
+    const KW_PART = /(截止|开标)[^；;。|\d]{0,6}(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?(?!\d)/g;
     const found = [];
-    const fullRe = /(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?/g;
     let dm;
-    while ((dm = fullRe.exec(txt))) found.push(new Date(+dm[1], +dm[2] - 1, +dm[3]));
-    const rest = txt.replace(fullRe, " ");
-    const partRe = /(^|\D)(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?(?!\d)/g;
-    while ((dm = partRe.exec(rest))) {
+    while ((dm = KW_FULL.exec(txt))) found.push(new Date(+dm[2], +dm[3] - 1, +dm[4]));
+    const rest = txt.replace(KW_FULL, " ");
+    while ((dm = KW_PART.exec(rest))) {
       let dt = new Date(d.getFullYear(), +dm[2] - 1, +dm[3]);
       // 年份缺失：归一到本年；若已远在过去（超 180 天），按招标惯例视为下一年度，避免误杀
       if ((dt - d) / 86400000 < -180) dt = new Date(d.getFullYear() + 1, +dm[2] - 1, +dm[3]);
@@ -151,7 +171,7 @@ cards.forEach((c, i) => {
       if (latest < today0) {
         expiredBad++;
         fails.push(
-          "商机「" + title + "」标进行中，但卡内最晚日期 " + latestStr + " 已早于今日（" + TODAY + "）——过期单不得标进行中"
+          "商机「" + title + "」标进行中，但截止/开标字段最晚日期 " + latestStr + " 已早于今日（" + TODAY + "）——过期单不得标进行中"
         );
       }
     }
