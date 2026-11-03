@@ -52,7 +52,8 @@ function todayStr() {
 
 function minify(html) {
   return html
-    .replace(/<!--[\s\S]*?-->/g, "") // 去注释（含 PUSH-TRIM 标记）
+    .replace(/<!--[\s\S]*?-->/g, "") // 去 HTML 注释（含 PUSH-TRIM 标记）
+    .replace(/\/\*[\s\S]*?\*\//g, "") // 去 CSS 注释（2026-11-03：样式块注释 ~450 字符，曾把看板顶过 2 万字截断线，导致提示板块被整段切掉）
     .replace(/>\s+</g, "><")
     .replace(/\s{2,}/g, " ")
     .replace(/\n/g, "")
@@ -344,7 +345,9 @@ function buildSmsText(html, dateStr, maxChars) {
     return { title, when, match, follow };
   });
   const hotItems = news.map((n) =>
-    textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || n)
+    textOf(((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || n)
+      // 2026-11-03 热点标题里的「源 ↗」条目页锚点不进短信文本
+      .replace(/<a class="src-link"[\s\S]*?<\/a>/gi, ""))
   );
   const tipItems = tips.map((t) =>
     textOf((t.match(/<span class="t-body"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || t)
@@ -568,9 +571,14 @@ function buildWechatBoard(html, dateStr, plan) {
     230
   );
   const news = matchBlocks(hotSec, "news").map((n) => ({
-    title: textOf((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || ""),
+    title: textOf(((n.match(/<h3 class="n-title"[^>]*>([\s\S]*?)<\/h3>/i) || [])[1] || "")
+      // 2026-11-03 热点标题里的「源 ↗」条目页锚点不进标题文本（链接单列）
+      .replace(/<a class="src-link"[\s\S]*?<\/a>/gi, "")),
     tags: tagObjs(n),
     rel: richText((n.match(/<p class="n-rel"[^>]*>([\s\S]*?)<\/p>/i) || [])[1] || ""),
+    // 2026-11-03 R12b：热点站条目页（源 ↗）与原文 URL 都带入服务号版——pushplus 页面内 <a> 可点
+    src: (n.match(/<a class="src-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
+    href: (n.match(/<a class="c-link"[^>]*href="([^"]*)"/i) || [])[1] || "",
   }));
 
   const tipSec = (html.match(/<section id="tips"[^>]*>([\s\S]*?)<\/section>/i) || [])[1] || "";
@@ -734,6 +742,15 @@ function buildWechatBoard(html, dateStr, plan) {
       if (n.tags) T.push('<div style="margin-top:6px">' + n.tags + "</div>");
       if (P.relLen && n.rel)
         T.push('<div style="margin-top:6px;font-size:12.5px;color:#393939;line-height:1.75">' + clip(n.rel, P.relLen) + "</div>");
+      // 2026-11-03 R12b：服务号版热点条目链接（pushplus 页面内 <a> 可点；短信版为纯文本，链接不可点）
+      {
+        const links = [];
+        if (n.src)
+          links.push('<a href="' + esc(n.src) + '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE;font-size:12.5px">热点站条目 ↗</a>');
+        if (n.href)
+          links.push('<a href="' + esc(n.href) + '" style="color:#0F62FE;text-decoration:none;border-bottom:1px solid #0F62FE;font-size:12.5px">查看原文 ↗</a>');
+        if (links.length) T.push('<div style="margin-top:6px">' + links.join("&nbsp;&nbsp;") + "</div>");
+      }
       T.push("</div>");
     });
     if (hotShown < news.length)

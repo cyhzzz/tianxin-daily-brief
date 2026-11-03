@@ -143,6 +143,8 @@
     .follow { background: var(--surface); padding: var(--space-2); font-size: var(--text-sm); color: var(--fg-2); border-radius: 0; }
     .follow b { color: var(--fg); font-weight: var(--weight-medium); }
     .c-link { display: inline-block; margin-top: var(--space-2); font-size: var(--text-sm); }
+    /* 2026-11-03 热点区链接标记：区块标题「审计热点站 ↗」与每条「源 ↗」——指向热点站首页/条目页，低调不喧宾夺主 */
+    .src-link { margin-left: 10px; font-size: 12px; vertical-align: middle; color: var(--fg-2); }
 
     /* ── 行业热点列表 ── */
     .news-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
@@ -246,12 +248,14 @@
     <div class="container">
       <p class="eyebrow-zh">Section 02</p>
       <div class="section-divider"></div>
-      <h2 class="section-title">行业热点</h2>
+      <h2 class="section-title">行业热点<a class="src-link" href="https://hot.auditdog.cn/" target="_blank">审计热点站 ↗</a></h2>
       <p class="section-note">{{HOTSPOT_NOTE}}</p>
-      <!-- 热点条目骨架（已固化，禁止增删字段）：每条 = 消息本身 + 底部超链。
+      <!-- 热点条目骨架（已固化，禁止增删字段）：每条 = 标题（旁带「源 ↗」）+ 消息本身 + 底部超链。
+           「源 ↗」链到该条在审计热点站的条目页 https://hot.auditdog.cn/items/{id}——抓取时留存条目 URL，
+           同商机卡留 articleId 道理；不是站首页、不是搜索引擎、不是二手转载。底部超链仍为原文 URL。
            严禁在消息块内塞 信源 / 评分 / 抓取方式 等过程性标签，严禁把消息做成表格或 dl 罗列信源。
            <div class="news">
-             <h3 class="n-title">标题</h3>
+             <h3 class="n-title">标题<a class="src-link" href="https://hot.auditdog.cn/items/..." target="_blank">源 ↗</a></h3>
              <p class="n-body">正文（可含对天信相关性，一句话）</p>
              <a class="c-link" href="原文链接" target="_blank" rel="noopener">查看原文 ↗</a>
            </div> -->

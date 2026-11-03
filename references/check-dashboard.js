@@ -67,6 +67,32 @@ if (gapM) {
   } catch (e) { /* 目录不可读时跳过，不影响门禁 */ }
 }
 
+// 1c) 读者面技术话术 WARN（2026-11-03 新增，只 WARN 绝不 FAIL）：
+//     看板/推送是给业务看的日报——正文只写业务事实，不写抓取方式、规则编号、
+//     降级过程、门禁状态（细则见 招标商机处理规范.md §〇之四 读者面原则）。
+//     扫描读者可见文本（剥注释/样式/脚本/标签）命中技术词表即 WARN；
+//     标题（c-title/n-title 等公告与新闻原文标题）豁免——真实标题本身可能含
+//     「接口」「V2」等词，属原文内容，不是处理逻辑自述，不得误伤。
+{
+  const noComment = rawHtml.replace(/<!--[\s\S]*?-->/g, "");
+  const titleTexts = [];
+  const titleRe = /class="[^"]*(?:c-title|n-title|tt-title|tt-h|wordmark)[^"]*"[^>]*>([\s\S]*?)<\/(?:h\d|p|a|div)>/g;
+  let tM;
+  while ((tM = titleRe.exec(noComment))) titleTexts.push(tM[1].replace(/<[^>]+>/g, "").trim());
+  let visible = noComment
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, "\n");
+  titleTexts.forEach((t) => { if (t) visible = visible.split(t).join("〔原文标题〕"); });
+  const TECH_WORDS = ["articleId", "pdftotext", "portal/detail", "expiredAt",
+                      "降级", "门禁", "抓取链路", "限域检索", "直抓", "反查", "扫描件",
+                      "渲染", "接口", "403"];
+  const hit = TECH_WORDS.filter((w) => visible.indexOf(w) >= 0);
+  if (/\bV[123]\b/.test(visible)) hit.push("V1/V2/V3");
+  if (hit.length)
+    warns.push("读者面出现技术表述（" + hit.join("、") + "）——技术过程只留内部记录，不落读者面（规范 §〇之四）");
+}
+
 // 2) 模板占位必须全部替换
 const placeholders = html.match(/\{\{[A-Z_]+\}\}/g);
 if (placeholders) fails.push("仍有未替换的占位符：" + [...new Set(placeholders)].join("、"));
