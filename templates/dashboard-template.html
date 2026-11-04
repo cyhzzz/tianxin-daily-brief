@@ -143,6 +143,16 @@
     .follow { background: var(--surface); padding: var(--space-2); font-size: var(--text-sm); color: var(--fg-2); border-radius: 0; }
     .follow b { color: var(--fg); font-weight: var(--weight-medium); }
     .c-link { display: inline-block; margin-top: var(--space-2); font-size: var(--text-sm); }
+    /* ── 近期已终结线索（商机终结 · 已定标/已签合同，不计活单，仅作归档留痕，不抢视觉） ── */
+    .closed-band { border: 1px dashed var(--border); background: var(--surface); padding: var(--space-4); margin-top: var(--space-5); }
+    .closed-band .closed-head { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: 0.02em; color: var(--muted); margin: 0 0 var(--space-3); }
+    .closed-band .closed-head .flag { color: var(--gold); margin-right: 6px; }
+    .closed-item { border-left: 3px solid var(--muted); padding: 0 0 0 var(--space-3); }
+    .closed-item + .closed-item { margin-top: var(--space-3); }
+    .closed-item .closed-title { font-size: var(--text-base); font-weight: var(--weight-semibold); margin: 0 0 var(--space-1); color: var(--fg-2); }
+    .closed-item .closed-meta { font-size: var(--text-xs); color: var(--muted); line-height: 1.75; margin: 0 0 var(--space-1); }
+    .closed-item .closed-note { font-size: var(--text-sm); color: var(--fg-2); line-height: 1.6; margin: 0 0 var(--space-1); }
+    .closed-item .c-link { margin-top: var(--space-1); }
     /* 2026-11-03 热点区链接标记：区块标题「审计热点站 ↗」与每条「源 ↗」——指向热点站首页/条目页，低调不喧宾夺主 */
     .src-link { margin-left: 10px; font-size: 12px; vertical-align: middle; color: var(--fg-2); }
 

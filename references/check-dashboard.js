@@ -268,8 +268,10 @@ if (cards.length && !hollow && !expiredBad && !intentBad)
 // 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
 try {
   const pn = require("./push-notify.js");
-  const built = pn.prepare(pn.absAssets(rawHtml));
-  const wx = pn.wechatBoard(built.html, TODAY);
+  // 服务号看板须基于全量内容构建（与 main() 一致）——wechatBoard 自带收缩档，优先保商机段与今日提示段；
+  // 不可用 prepare 截断版（会在 2 万字处硬切掉整段「今日提示」）。
+  const fullMin = pn.minify(pn.absAssets(rawHtml));
+  const wx = pn.wechatBoard(fullMin, TODAY);
   const problems = [];
   if (wx.len > 19000) problems.push("超 2 万字上限（" + wx.len + "）");
   if (wx.level > 0) warns.push("服务号看板已收缩到第 " + wx.level + " 档（条目多、篇幅紧）");

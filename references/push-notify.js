@@ -799,10 +799,32 @@ function wechatBoard(html, dateStr) {
   return { html: last.slice(0, WX_LIMIT - 60) + "…", level: plans.length, len: WX_LIMIT };
 }
 
+/**
+ * 超限精简：优先从「行业热点」段尾部删减热点条目，保留商机段与今日提示段
+ * （核心情报与提示优先）。每次删最后一条 news，直到回到 limit 内或仅剩 1 条。
+ * 正常日报不超 2 万字，仅极长日报（活单/热点偏多）触发；删减后仍超再整段截断。
+ */
+function shrinkHotspots(html, limit) {
+  const m = html.match(/<section id="hotspots"[\s\S]*?<\/section>/i);
+  if (!m) return html;
+  const sec = m[0];
+  const news = matchBlocks(sec, "news");
+  if (news.length <= 1) return html;
+  const startIdx = sec.indexOf(news[0]);
+  const kept = news.slice(0, news.length - 1).join("");
+  const newSec = sec.slice(0, startIdx) + kept + "</section>";
+  const out = html.slice(0, m.index) + newSec + html.slice(m.index + sec.length);
+  if (out.length > limit) return shrinkHotspots(out, limit);
+  return out;
+}
+
 function prepare(raw) {
   let html = minify(raw);
   if (html.length <= LIMIT) return { html, trimmed: false };
-  // 仍超限：在最后一个 </section> 前硬截断并附说明（模板已移除「历史参考」列，正常不会走到这里）
+  // 仍超限：优先删减「行业热点」尾部条目（保留商机 + 今日提示），回到 2 万字内；
+  // 极端情形（仍超）才整段截断并附说明（模板已移除「历史参考」列，正常不会走到这里）
+  html = shrinkHotspots(html, LIMIT);
+  if (html.length <= LIMIT) return { html, trimmed: true };
   const cut = html.lastIndexOf("</section>", LIMIT - 200);
   const safe = cut > 0 ? cut : LIMIT;
   html =
@@ -865,6 +887,7 @@ async function main() {
   //    看板为单文件自包含（logo 内联为 data URI，约 227KB×2），若先 prepare 会被 2 万字
   //    上限硬截断，正文和短信抽取都会丢。换成公网地址后体积回落到 20KB 级。
   const full = absAssets(raw);
+  const fullMin = minify(full); // 全量（未截断）供服务号看板使用——服务号自带收缩档，必须基于完整内容构建，否则会丢「今日提示」段
   const { html, trimmed } = prepare(full);
   console.log("看板字符数:", html.length, trimmed ? "（已精简至 2 万字内）" : "（原始，未超上限）");
   const inlined = inlineCss(html); // 邮件：CSS 转内联（jsdom 可用且不超上限时才用）
@@ -903,7 +926,9 @@ async function main() {
   console.log(cmcc);
 
   // ④ 服务号：template:"html" 发移动端看板（全内联、单列、零 <style>）
-  const wx = wechatBoard(html, date);
+  //    基于全量内容 fullMin 构建——wechatBoard 自带收缩档，优先保商机段与今日提示段；
+  //    不得用 prepare 截断后的 html（会在 2 万字处硬切掉整段「今日提示」）。
+  const wx = wechatBoard(fullMin, date);
   console.log(
     "服务号版式:",
     "移动端单列 · 全内联",
