@@ -2,7 +2,8 @@
 /**
  * 看板自检助手（天信每日日报）
  * 用途：生成看板后、推送前必跑。把「日期没更新到当日」「模板占位没替换」「历史参考残留」
- *       「速览数字与条目数不符」这四类问题机械拦下。
+ *       「速览数字与条目数不符」「商机有效性证据不足」「常驻框架协议无当日触发（5d，2026-11-07 新增）」
+ *       等问题机械拦下。
  *
  * 用法：node references/check-dashboard.js daily/2026-10-30.html
  * 退出码：0 = 通过（可推送）｜1 = 不通过（禁止推送，先修）
@@ -264,6 +265,58 @@ if (cards.length) {
 }
 if (cards.length && !hollow && !expiredBad && !intentBad)
   ok("商机核验门禁通过（无有效性证据不足卡片、无过期截止、无意向单标进行中）");
+
+// 5d) 触发门禁（2026-11-07 新增 · 硬 FAIL + 软 WARN）
+//     依据：SKILL.md「触发门禁」、references/招标商机处理规范.md §〇之二「触发门禁」小节。
+//     事故：2026-11-07 把 2024-11-29 发布、2026-12-31 期满、「期满前可随时申请加入」的
+//     临海开放式框架协议当成当日活单推送。它通过了 5c 有效性门禁（确实没死），但当天
+//     没有任何新事件——5c 只验「死没死」，5d 补「今天该不该报」。
+//     保守实现（避免误伤正常「即将开标 30 天内」单）：
+//       - 硬 FAIL：活单卡具「常驻开放式框架协议」特征 + 发布日距今 > 7 天 + 卡上无当日新事件说明；
+//       - 软 WARN：其它活单卡发布日距今 > 7 天（仅提醒人工确认，不阻断）；
+//       - 新一轮征集公告发布日在近 7 天内 → 发布日判据天然放行，不受影响。
+{
+  const FRESH_EVENT_RE = /变更公告|补充公告|澄清公告|重新招标|二次竞价|新一轮征集|本轮征集|重新发布|重新征集/;
+  const FRAMEWORK_RE = /框架协议/;
+  const OPEN_ENDED_RE = /开放式|期满前[^，。；]{0,12}随时|随时申请加入|可随时提交|随时提交加入|持续有效/;
+  let triggerBad = 0;
+  let staleLive = 0;
+  cards.forEach((c) => {
+    // cards 的切分正则会一直吃到 </section> 前，c 可能吞入卡外的 section-note /
+    // closed-band（含「框架协议」等字样）；若用整段 c 判特征，会把普通招标单误判为
+    // 常驻框架协议。故把特征/发布日/新事件的判据严格限定在卡片自身（截到 c-link 为止）。
+    const cut = c.indexOf('class="c-link"');
+    const core = cut > 0 ? c.slice(0, cut) : c.slice(0, 1500);
+    const title = ((core.match(/<h4 class="c-title"[^>]*>([\s\S]*?)<\/h4>/) || [])[1] || "")
+      .replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+    if (!title) return; // 空列占位
+    const tags = (core.match(/<span class="tag[^"]*">([\s\S]*?)<\/span>/g) || []).join(" ");
+    const txt = core.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const isLive = /进行中|报名中|有效/.test(tags) || /进行中|报名中/.test(txt);
+    if (!isLive) return;
+    const pm = txt.match(/发布[^0-9]{0,6}(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!pm) return; // 发布日未披露/取不到 → 跳过，不制造新 FAIL
+    const pub = new Date(+pm[1], +pm[2] - 1, +pm[3]);
+    const today0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const ageDays = Math.round((today0 - pub) / 86400000);
+    if (ageDays <= 7) return; // 近 7 天发布（含新一轮征集公告发布当日），触发门禁天然通过
+    if (FRESH_EVENT_RE.test(core)) return; // 卡上注明当日新状态事件，放行
+    const pubStr = pm[1] + "-" + p(+pm[2]) + "-" + p(+pm[3]);
+    const isOpenFramework = FRAMEWORK_RE.test(txt) && OPEN_ENDED_RE.test(txt);
+    if (isOpenFramework) {
+      triggerBad++;
+      fails.push(
+        "商机「" + title + "」为常驻型开放式框架协议，发布日 " + pubStr + " 距今 " + ageDays +
+        " 天，当日无新征集/变更事件——不得计为当日活单（触发门禁，见 §〇之二；若确为新一轮征集请把发布日更新为今日）"
+      );
+    } else {
+      staleLive++;
+    }
+  });
+  if (staleLive)
+    warns.push("有 " + staleLive + " 张活单卡发布日距今 > 7 天且卡上未见当日新事件说明，请确认是否应按「近 7 天发布」剔除（触发门禁，仅提醒）");
+  if (!triggerBad) ok("触发门禁通过（无常驻框架协议在无当日事件时被计为活单）");
+}
 
 // 6) 服务号看板可生成（全内联、单列、无 style、无换行、三板块齐全）//    依赖 push-notify.js 导出的 wechatBoard；它若被改坏，微信通道会推不出内容
 try {
